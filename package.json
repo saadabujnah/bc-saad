@@ -1,0 +1,20 @@
+{
+  "name": "crash-casino",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "BC.Game-style Crash game with Supabase, Socket.io and provably fair HMAC-SHA256",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  }
+}
