@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1"/>
     <title>Crash &amp; Trenball - BC Game Clone</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script src="/socket.io/socket.io.js"></script>
@@ -140,17 +141,27 @@
                 flex-direction: column;
                 gap: 8px;
                 padding: 8px 8px calc(12px + env(safe-area-inset-bottom, 0px));
+                flex: 0 0 auto;
+                min-height: auto;
+                overflow: visible;
             }
 
             main > div:first-child,
             main > div:last-child {
                 width: 100%;
                 max-width: 100%;
-                flex: 1 1 auto;
+                flex: 0 0 auto;
+                min-width: 0;
             }
 
-            .flex-1.flex.flex-col.gap-3.overflow-hidden {
-                min-height: 0;
+            main > div:first-child {
+                overflow: visible;
+            }
+
+            main > div:first-child > div:first-child {
+                flex: 0 0 auto;
+                height: clamp(260px, 44vh, 420px);
+                overflow: hidden;
             }
 
             .bg-card {
@@ -158,9 +169,12 @@
             }
 
             #game-canvas {
-                min-height: 260px;
-                height: 38vh;
-                max-height: 46vh;
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                min-height: 0;
+                max-height: none;
                 margin-top: 0;
                 transform: translateZ(0);
             }
@@ -187,9 +201,9 @@
 <body class="dark flex flex-col min-h-screen overflow-x-hidden">
 
     <!-- الشريط العلوي (Header) -->
-    <header class="bg-bcCard border-b border-gray-800 px-4 py-2.5 sticky top-0 z-50 flex items-center justify-between">
-        <div class="flex items-center space-x-3 space-x-reverse">
-            <button class="text-bcTextGray hover:text-white p-2 rounded-lg hover:bg-bcBg transition">
+    <header class="bg-bcCard border-b border-gray-800 px-2 sm:px-4 py-2 sm:py-2.5 sticky top-0 z-50 flex items-center justify-between gap-2">
+        <div class="flex items-center space-x-2 sm:space-x-3 space-x-reverse">
+            <button class="hidden sm:inline-flex text-bcTextGray hover:text-white p-2 rounded-lg hover:bg-bcBg transition">
                 <i class="fa-solid fa-bars text-lg"></i>
             </button>
             <div class="flex items-center space-x-2 space-x-reverse cursor-pointer">
@@ -201,28 +215,28 @@
         </div>
 
         <div class="flex items-center bg-bcInput rounded-xl p-1 border border-gray-800">
-            <div class="flex items-center px-3 space-x-2 space-x-reverse">
+            <div class="flex items-center px-2 sm:px-3 space-x-1.5 sm:space-x-2 space-x-reverse">
                 <i class="fa-solid fa-wallet text-bcBrightGreen text-base"></i>
-                <span class="text-xs text-bcTextGray">USD</span>
-                <span id="user-balance" class="font-mono font-bold text-white text-base">0.00</span>
+                <span class="hidden sm:inline text-xs text-bcTextGray">USD</span>
+                <span id="user-balance" class="font-mono font-bold text-white text-sm sm:text-base">0.00</span>
             </div>
-            <button onclick="handleDeposit()" class="bg-bcGreen hover:bg-bcGreenHover text-white px-4 py-1.5 rounded-lg font-bold text-xs flex items-center space-x-1 space-x-reverse transition shadow-md">
+            <button onclick="handleDeposit()" class="bg-bcGreen hover:bg-bcGreenHover text-white px-2.5 sm:px-4 py-1.5 rounded-lg font-bold text-xs flex items-center space-x-1 space-x-reverse transition shadow-md">
                 <i class="fa-solid fa-plus text-xs"></i>
                 <span>إيداع</span>
             </button>
         </div>
 
-        <div class="flex items-center space-x-2 space-x-reverse">
-            <button class="w-9 h-9 rounded-xl bg-bcInput hover:bg-bcCardHover text-bcTextGray hover:text-white flex items-center justify-center transition">
+        <div class="flex items-center space-x-1.5 sm:space-x-2 space-x-reverse">
+            <button class="hidden sm:flex w-9 h-9 rounded-xl bg-bcInput hover:bg-bcCardHover text-bcTextGray hover:text-white items-center justify-center transition">
                 <i class="fa-solid fa-magnifying-glass"></i>
             </button>
             <button class="w-9 h-9 rounded-xl bg-bcInput hover:bg-bcCardHover text-bcTextGray hover:text-white flex items-center justify-center transition relative">
                 <i class="fa-regular fa-bell"></i>
                 <span class="w-2 h-2 bg-bcBrightGreen rounded-full absolute top-2 right-2"></span>
             </button>
-            <div onclick="openAccount()" title="الحساب" class="flex items-center space-x-2 space-x-reverse bg-bcInput p-1 pr-2 rounded-xl cursor-pointer hover:bg-bcCardHover transition">
+            <div onclick="openAccount()" title="الحساب" class="flex items-center space-x-2 space-x-reverse bg-bcInput p-1 pr-1 sm:pr-2 rounded-xl cursor-pointer hover:bg-bcCardHover transition">
                 <img id="user-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=CryptoGambler" alt="Avatar" class="w-7 h-7 rounded-lg bg-gray-700">
-                <i class="fa-solid fa-chevron-down text-xs text-bcTextGray pl-1"></i>
+                <i class="fa-solid fa-chevron-down hidden sm:inline text-xs text-bcTextGray pl-1"></i>
             </div>
         </div>
     </header>
