@@ -1,0 +1,1211 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1"/>
+    <title>Dice - BC.Game Clone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bcBg: '#1a1d20',
+                        bcCard: '#24272c',
+                        bcCardHover: '#2a2e33',
+                        bcInput: '#1d2024',
+                        bcGreen: '#26a17b',
+                        bcGreenHover: '#2bc495',
+                        bcBrightGreen: '#00e676',
+                        bcRed: '#ed4245',
+                        bcOrange: '#f5a623',
+                        bcTextGray: '#98a7b5',
+                    },
+                    fontFamily: {
+                        sans: ['IBM Plex Sans Arabic', 'Inter', 'sans-serif'],
+                        mono: ['Inter', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        html, body {
+            min-height: 100%;
+            margin: 0;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body {
+            background-color: #121418;
+            color: #b1bad3;
+            font-family: 'IBM Plex Sans Arabic', 'Inter', sans-serif;
+            overflow-x: hidden;
+            user-select: none;
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+        .bg-card { background-color: #24272c; }
+        .bg-input { background-color: #1d2024; }
+        .accent-green { color: #00e676; }
+        .btn-green {
+            background: linear-gradient(135deg, #00e676 0%, #10b981 100%);
+            color: #0d131c;
+            font-weight: 700;
+        }
+        .btn-green:hover { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+
+        .game-frame-dice {
+            border: 2px solid transparent;
+            border-radius: 20px;
+            background-image:
+                linear-gradient(#121418, #121418),
+                linear-gradient(180deg, #2e7d32 0%, #1b5e20 100%);
+            background-origin: border-box;
+            background-clip: padding-box, border-box;
+            box-shadow:
+                0 22px 45px -24px rgba(0, 231, 1, 0.35),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 6px;
+            background: #ffffff;
+            cursor: pointer;
+            border: 2px solid #2f3542;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        }
+        input[type=range]::-moz-range-thumb {
+            height: 24px;
+            width: 24px;
+            border-radius: 6px;
+            background: #ffffff;
+            cursor: pointer;
+            border: 2px solid #2f3542;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        }
+        @keyframes shakeDice {
+            0% { transform: scale(1.1) rotate(0deg); }
+            25% { transform: scale(1.1) rotate(-5deg); }
+            50% { transform: scale(1.1) rotate(5deg); }
+            75% { transform: scale(1.1) rotate(-3deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+        .animate-dice { animation: shakeDice 0.1s infinite; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { scrollbar-width: none; }
+        .dice-stage {
+            background: radial-gradient(circle at 50% 35%, rgba(0, 231, 1, 0.06), rgba(18, 20, 24, 0) 65%), #121418;
+        }
+        @media (max-width: 1023px) {
+            main { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); }
+        }
+    </style>
+</head>
+<body class="dark flex flex-col min-h-screen overflow-x-hidden">
+
+    <!-- الشريط العلوي (من صفحة Crash) -->
+    <header class="bg-bcCard border-b border-gray-800 px-2 sm:px-4 py-2 sm:py-2.5 sticky top-0 z-50 flex items-center justify-between gap-1 sm:gap-2">
+        <div class="flex items-center space-x-2 sm:space-x-3 space-x-reverse">
+            <button class="hidden sm:inline-flex text-bcTextGray hover:text-white p-2 rounded-lg hover:bg-bcBg transition">
+                <i class="fa-solid fa-bars text-lg"></i>
+            </button>
+            <a href="/" class="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                <div class="w-8 h-8 bg-bcBrightGreen rounded-lg flex items-center justify-center font-bold text-black text-xl">
+                    <i class="fa-solid fa-dice"></i>
+                </div>
+                <span class="font-extrabold text-xl tracking-wider text-white hidden sm:inline">BC.GAME</span>
+                <span class="px-1 sm:px-1.5 py-0.5 rounded-md bg-bcInput border border-gray-700 text-[9px] sm:text-[10px] font-bold text-bcBrightGreen">DICE</span>
+            </a>
+        </div>
+
+        <div class="flex items-center bg-bcInput rounded-xl p-1 border border-gray-800">
+            <div class="flex items-center px-2 sm:px-3 space-x-1.5 sm:space-x-2 space-x-reverse">
+                <i class="fa-solid fa-wallet text-bcBrightGreen text-base"></i>
+                <span class="hidden sm:inline text-xs text-bcTextGray">USD</span>
+                <span id="user-balance" class="font-mono font-bold text-white text-sm sm:text-base">0.00</span>
+            </div>
+            <button onclick="handleDeposit()" class="bg-bcGreen hover:bg-bcGreenHover text-white px-2 sm:px-4 py-1.5 rounded-lg font-bold text-xs flex items-center space-x-1 space-x-reverse transition shadow-md">
+                <i class="fa-solid fa-plus text-xs"></i>
+                <span class="hidden sm:inline">إيداع</span>
+            </button>
+        </div>
+
+        <div class="flex items-center space-x-1.5 sm:space-x-2 space-x-reverse">
+            <a href="/crash" title="Crash" class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-bcInput hover:bg-bcCardHover text-bcTextGray hover:text-white flex items-center justify-center transition">
+                <i class="fa-solid fa-rocket"></i>
+            </a>
+            <button class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-bcInput hover:bg-bcCardHover text-bcTextGray hover:text-white flex items-center justify-center transition relative">
+                <i class="fa-regular fa-bell"></i>
+                <span class="w-2 h-2 bg-bcBrightGreen rounded-full absolute top-2 right-2"></span>
+            </button>
+            <div onclick="openAccount()" title="الحساب" class="flex items-center space-x-2 space-x-reverse bg-bcInput p-1 pr-1 sm:pr-2 rounded-xl cursor-pointer hover:bg-bcCardHover transition">
+                <img id="user-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=CryptoGambler" alt="Avatar" class="w-7 h-7 rounded-lg bg-gray-700">
+                <i class="fa-solid fa-chevron-down hidden sm:inline text-xs text-bcTextGray pl-1"></i>
+            </div>
+        </div>
+    </header>
+
+    <!-- مساحة اللعبة -->
+    <main class="game-frame-dice flex-1 max-w-[1400px] w-full mx-auto my-3 p-3 md:p-6 flex flex-col lg:flex-row gap-4">
+
+        <!-- لوحة الرهان -->
+        <aside class="w-full lg:w-[320px] bg-[#1a1d24] border border-[#2f3542] rounded-xl p-4 flex flex-col gap-4 shrink-0">
+            <div class="flex bg-[#121418] p-1 rounded-lg">
+                <button id="tabManual" onclick="switchBetTab('manual')" class="flex-1 py-1.5 text-center text-sm font-bold text-white bg-[#212630] rounded-md transition">يدوي</button>
+                <button id="tabAuto" onclick="switchBetTab('auto')" class="flex-1 py-1.5 text-center text-sm text-[#8b96a5] hover:text-white transition">آلي</button>
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <div class="flex justify-between text-xs text-[#8b96a5]">
+                    <span>المبلغ</span>
+                    <span><span id="balance-mini">0.00</span> USD</span>
+                </div>
+                <div class="flex items-center bg-[#121418] border border-[#2f3542] rounded-lg px-3 py-2">
+                    <input type="number" id="betAmount" value="1.00" min="0.01" step="0.01" class="w-full bg-transparent text-white outline-none font-semibold text-sm" />
+                    <span class="text-xs text-[#8b96a5] mr-2">USD</span>
+                </div>
+                <div class="grid grid-cols-4 gap-1.5 mt-1">
+                    <button onclick="adjustBet(0.5)" class="bg-[#212630] hover:bg-[#2f3542] text-white py-1.5 rounded-md text-xs font-semibold transition">1/2</button>
+                    <button onclick="adjustBet(2)" class="bg-[#212630] hover:bg-[#2f3542] text-white py-1.5 rounded-md text-xs font-semibold transition">2x</button>
+                    <button onclick="setBet(10)" class="bg-[#212630] hover:bg-[#2f3542] text-white py-1.5 rounded-md text-xs font-semibold transition">10</button>
+                    <button onclick="setBet(100)" class="bg-[#212630] hover:bg-[#2f3542] text-white py-1.5 rounded-md text-xs font-semibold transition">100</button>
+                </div>
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <span class="text-xs text-[#8b96a5]">مبلغ الفوز المتوقع</span>
+                <div class="flex items-center bg-[#121418] border border-[#2f3542] rounded-lg px-3 py-2">
+                    <input type="text" id="winAmount" value="0.000000" readonly class="w-full bg-transparent text-[#00e701] outline-none font-bold text-sm" />
+                    <span class="text-xs text-[#8b96a5] mr-2">USD</span>
+                </div>
+            </div>
+
+            <button id="betBtn" onclick="triggerBet()" class="w-full bg-[#00e701] hover:bg-[#00c701] text-black font-extrabold py-3 rounded-lg text-base transition shadow-lg shadow-[#00e701]/10 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed">
+                رهان
+            </button>
+
+            <div class="mt-auto bg-[#121418] border border-[#2f3542] rounded-lg p-3 text-[11px]">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-[#8b96a5]">الجولة المشتركة</span>
+                    <span id="roundNumberLabel" class="font-mono text-white">—</span>
+                </div>
+                <div class="flex items-center justify-between mb-1.5 gap-2">
+                    <span class="text-[#8b96a5] shrink-0">Seed Hash</span>
+                    <span id="seedHashLabel" class="font-mono text-[10px] text-gray-300 truncate">بانتظار الجولة</span>
+                </div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-[#8b96a5]">House Edge</span>
+                    <span id="edgeLabel" class="font-mono text-white">1.00%</span>
+                </div>
+                <div class="text-[10px] text-[#8b96a5] leading-5 mb-2">نفس بذرة Crash — تُكشف البذرة وتُتحقق بعد انتهاء الجولة.</div>
+                <button onclick="openFairModal()" class="w-full py-1.5 rounded-md bg-[#212630] hover:bg-[#2f3542] text-[#b1bad3] hover:text-white font-bold text-[11px] transition">
+                    العدالة والتحقق
+                </button>
+            </div>
+        </aside>
+
+        <!-- لوحة اللعبة -->
+        <section class="flex-1 bg-[#1a1d24] border border-[#2f3542] rounded-xl p-4 md:p-6 flex flex-col justify-between gap-5">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-9 h-9 rounded-lg bg-[#00e701]/10 text-[#00e701] flex items-center justify-center">
+                        <i class="fa-solid fa-dice text-lg"></i>
+                    </div>
+                    <div>
+                        <div class="text-white font-extrabold text-lg leading-tight">Dice</div>
+                        <div id="roundStatus" class="text-[11px] text-[#8b96a5]">جارٍ الاتصال...</div>
+                    </div>
+                </div>
+                <button onclick="openFairModal()" class="px-3 py-1.5 rounded-lg bg-[#121418] border border-[#2f3542] text-[#8b96a5] hover:text-white text-xs font-bold transition">
+                    <i class="fa-solid fa-shield-halved ml-1"></i>
+                    Provably Fair
+                </button>
+            </div>
+
+            <div class="dice-stage border border-[#2f3542] rounded-lg min-h-[300px] md:min-h-[340px] flex flex-col items-center justify-center relative p-5 md:p-8">
+                <div id="diceBox" class="bg-white text-black font-black text-3xl md:text-4xl px-8 py-3 rounded-2xl shadow-[0_0_25px_rgba(255,255,255,0.18)] mb-10 transition-all duration-200">
+                    50.00
+                </div>
+
+                <div class="w-full max-w-[560px] relative">
+                    <input
+                        type="range"
+                        min="1"
+                        max="99"
+                        value="50"
+                        step="0.01"
+                        id="diceSlider"
+                        class="w-full h-3 rounded-lg appearance-none outline-none cursor-pointer"
+                        style="background: linear-gradient(to left, #00e701 50%, #e67e22 50%);"
+                    />
+                    <div class="flex justify-between text-xs text-[#8b96a5] font-semibold mt-3 px-1">
+                        <span>1</span>
+                        <span>25</span>
+                        <span>50</span>
+                        <span>75</span>
+                        <span id="maxTargetLabel">99</span>
+                    </div>
+                </div>
+
+                <div id="resultNote" class="mt-5 text-xs text-[#8b96a5] text-center min-h-[18px]">اسحب المؤشر لتحديد فرصة الفوز — النتيجة أقل من الهدف = فوز.</div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="bg-[#121418] border border-[#2f3542] p-3 rounded-lg flex flex-col gap-1">
+                    <span class="text-xs text-[#8b96a5]">صرف</span>
+                    <div class="flex justify-between items-center text-white font-bold text-sm">
+                        <span id="payoutDisplay">1.98</span>
+                        <span class="text-[#8b96a5]">×</span>
+                    </div>
+                </div>
+
+                <div class="bg-[#121418] border border-[#2f3542] p-3 rounded-lg flex flex-col gap-1">
+                    <span class="text-xs text-[#8b96a5]">لفة تحت</span>
+                    <div class="flex justify-between items-center text-white font-bold text-sm">
+                        <span id="rollDisplay">50.00</span>
+                        <span class="text-[#8b96a5]">🔄</span>
+                    </div>
+                </div>
+
+                <div class="bg-[#121418] border border-[#2f3542] p-3 rounded-lg flex flex-col gap-1">
+                    <span class="text-xs text-[#8b96a5]">فرصة الفوز</span>
+                    <div class="flex justify-between items-center text-white font-bold text-sm">
+                        <span id="chanceDisplay">50.00</span>
+                        <span class="text-[#8b96a5]">%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-[#121418] border border-[#2f3542] rounded-lg p-3">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-white">آخر اللفات</span>
+                    <span class="text-[10px] text-[#8b96a5]">اضغط على أي لفة للتحقق</span>
+                </div>
+                <div id="rollsList" class="flex flex-wrap gap-2 min-h-[30px] items-center">
+                    <span class="text-xs text-[#8b96a5]">لا توجد لفات بعد.</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- نافذة العدالة -->
+    <div id="fair-modal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div class="w-full max-w-lg max-h-[90vh] overflow-y-auto bg-card border border-gray-800 rounded-2xl shadow-2xl p-5 relative no-scrollbar">
+            <button onclick="closeFairModal()" class="absolute top-3 left-3 w-8 h-8 rounded-lg bg-input hover:bg-gray-800 text-gray-400 hover:text-white flex items-center justify-center transition text-lg">×</button>
+
+            <div class="flex items-center gap-2 mb-4">
+                <i class="fa-solid fa-shield-halved text-bcBrightGreen"></i>
+                <span class="text-white font-extrabold">التحقق من العدالة</span>
+                <span class="text-[10px] text-gray-500">نفس خوارزمية Crash</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-[11px] mb-3">
+                <div class="rounded-xl bg-input border border-gray-800 p-2.5">
+                    <div class="text-gray-500 mb-1">الجولة</div>
+                    <div id="fair-round" class="font-mono text-white">—</div>
+                </div>
+                <div class="rounded-xl bg-input border border-gray-800 p-2.5">
+                    <div class="text-gray-500 mb-1">النتيجة</div>
+                    <div id="fair-result-state" class="font-bold text-white">—</div>
+                </div>
+                <div class="rounded-xl bg-input border border-gray-800 p-2.5">
+                    <div class="text-gray-500 mb-1">الهدف / Chance</div>
+                    <div id="fair-target" class="font-mono text-white">—</div>
+                </div>
+                <div class="rounded-xl bg-input border border-gray-800 p-2.5">
+                    <div class="text-gray-500 mb-1">Roll</div>
+                    <div id="fair-roll" class="font-mono text-white">—</div>
+                </div>
+                <div class="rounded-xl bg-input border border-gray-800 p-2.5">
+                    <div class="text-gray-500 mb-1">المضاعف</div>
+                    <div id="fair-multiplier" class="font-mono text-yellow-300">—</div>
+                </div>
+                <div class="rounded-xl bg-input border border-gray-800 p-2.5">
+                    <div class="text-gray-500 mb-1">العائد</div>
+                    <div id="fair-payout" class="font-mono text-green-400">—</div>
+                </div>
+            </div>
+
+            <div class="rounded-xl bg-gray-900/70 p-3 border border-gray-800 mb-3">
+                <div class="space-y-2 text-[11px] text-gray-300">
+                    <div class="flex flex-col gap-1">
+                        <span class="text-gray-500">Server Seed Hash</span>
+                        <span id="fair-hash" class="break-all font-mono text-gray-200">—</span>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <span class="text-gray-500">Server Seed (بعد كشف الجولة)</span>
+                        <input id="fair-server-seed" type="text" spellcheck="false" placeholder="ألصق server seed للتحقق..." class="w-full bg-input border border-gray-700 rounded-lg py-2 px-2.5 text-white font-mono text-[11px] focus:outline-none focus:border-green-400 transition" />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <span class="text-gray-500">Client Seed</span>
+                        <span id="fair-client-seed" class="break-all font-mono text-gray-200">—</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-gray-500">Nonce</span>
+                        <span id="fair-nonce" class="font-mono text-gray-200">—</span>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <span class="text-gray-500">Salt / Message</span>
+                        <span id="fair-salt" class="break-all font-mono text-gray-200 text-[10px]">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <button id="fair-verify-btn" onclick="verifyDiceRoll()" class="w-full py-2.5 rounded-xl bg-bcBrightGreen text-black font-extrabold text-sm hover:opacity-90 transition">تحقق</button>
+            <div id="fair-verify-result" class="mt-2 rounded bg-input border border-gray-800 p-2 font-mono text-xs text-gray-300 min-h-[34px]"></div>
+        </div>
+    </div>
+
+    <!-- الحساب / تسجيل الدخول -->
+    <div id="account-modal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div class="w-full max-w-md bg-card border border-gray-800 rounded-2xl shadow-2xl p-5 relative">
+            <button onclick="closeAccount()" class="absolute top-3 left-3 w-8 h-8 rounded-lg bg-input hover:bg-gray-800 text-gray-400 hover:text-white flex items-center justify-center transition text-lg">×</button>
+
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-xl font-black tracking-wider text-white">BC.<span class="accent-green">GAME</span></span>
+                <span class="text-[11px] text-gray-500">حسابك في Dice</span>
+            </div>
+
+            <div id="account-guest">
+                <div class="flex bg-input p-1 rounded-xl w-full mb-4 border border-gray-800">
+                    <button id="auth-tab-login" onclick="switchAuthTab('login')" class="flex-1 px-4 py-2 rounded-lg text-xs font-bold transition bg-card text-white shadow">تسجيل الدخول</button>
+                    <button id="auth-tab-register" onclick="switchAuthTab('register')" class="flex-1 px-4 py-2 rounded-lg text-xs font-bold transition text-gray-400 hover:text-white">إنشاء حساب</button>
+                </div>
+
+                <form id="form-login" onsubmit="submitAuth(event, 'login')" class="flex flex-col gap-3">
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">البريد الإلكتروني</label>
+                        <input id="login-email" type="email" required autocomplete="email" class="w-full bg-input border border-gray-700/80 rounded-xl py-2.5 px-3 text-white font-mono focus:outline-none focus:border-green-400 transition" placeholder="you@example.com">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">كلمة المرور</label>
+                        <input id="login-password" type="password" required autocomplete="current-password" class="w-full bg-input border border-gray-700/80 rounded-xl py-2.5 px-3 text-white font-mono focus:outline-none focus:border-green-400 transition" placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="btn-green w-full py-3 rounded-xl text-sm mt-1">دخول</button>
+                </form>
+
+                <form id="form-register" onsubmit="submitAuth(event, 'register')" class="flex flex-col gap-3 hidden">
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">اسم المستخدم</label>
+                        <input id="reg-username" type="text" required autocomplete="username" class="w-full bg-input border border-gray-700/80 rounded-xl py-2.5 px-3 text-white font-mono focus:outline-none focus:border-green-400 transition" placeholder="username">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">البريد الإلكتروني</label>
+                        <input id="reg-email" type="email" required autocomplete="email" class="w-full bg-input border border-gray-700/80 rounded-xl py-2.5 px-3 text-white font-mono focus:outline-none focus:border-green-400 transition" placeholder="you@example.com">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">كلمة المرور</label>
+                        <input id="reg-password" type="password" required autocomplete="new-password" class="w-full bg-input border border-gray-700/80 rounded-xl py-2.5 px-3 text-white font-mono focus:outline-none focus:border-green-400 transition" placeholder="6 أحرف على الأقل">
+                    </div>
+                    <button type="submit" class="btn-green w-full py-3 rounded-xl text-sm mt-1">إنشاء الحساب</button>
+                </form>
+
+                <div id="auth-error" class="text-red-500 text-xs mt-3 min-h-[16px]"></div>
+            </div>
+
+            <div id="account-user" class="hidden">
+                <div class="bg-input rounded-xl border border-gray-800 p-4 mb-4">
+                    <div class="text-xs text-gray-400">مسجّل الدخول باسم</div>
+                    <div id="account-username" class="font-bold text-white text-lg"></div>
+                    <div class="text-xs text-gray-400 mt-2">الرصيد</div>
+                    <div id="account-balance" class="font-mono font-bold text-green-400 text-2xl"></div>
+                </div>
+                <button onclick="logout()" class="w-full py-3 rounded-xl bg-red-500/90 hover:bg-red-500 text-white font-extrabold text-sm transition">تسجيل الخروج</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- إشعار -->
+    <div id="toast" class="fixed bottom-5 left-5 bg-card border-r-4 border-green-400 text-white px-4 py-3 rounded-xl shadow-2xl z-50 transform translate-y-20 opacity-0 transition-all duration-300 flex items-center gap-3">
+        <div id="toast-icon" class="w-2.5 h-2.5 rounded-full bg-green-400 shrink-0"></div>
+        <div>
+            <div id="toast-title" class="font-bold text-xs">تم</div>
+            <div id="toast-message" class="text-gray-400 text-[11px]"></div>
+        </div>
+    </div>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+
+        const state = {
+            config: null,
+            sb: null,
+            session: null,
+            user: null,
+            socket: null,
+            balance: 0,
+            round: null,
+            phase: 'idle',
+            houseEdgePercent: 1,
+            rolling: false,
+            rollTimer: null,
+            history: [],
+            lastRoll: null,
+            selectedRoll: null,
+            betTab: 'manual',
+        };
+
+        function round2(value) {
+            return Math.round((Number(value) || 0) * 100) / 100;
+        }
+
+        function formatAmount(value) {
+            return Number(value || 0).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            });
+        }
+
+        function shortHash(hash) {
+            const value = String(hash || '');
+            return value.length > 18 ? `${value.slice(0, 10)}…${value.slice(-6)}` : value || '—';
+        }
+
+        function authHeaders(extra = {}) {
+            const headers = { ...extra };
+            if (state.session?.access_token) {
+                headers.Authorization = `Bearer ${state.session.access_token}`;
+            }
+            return headers;
+        }
+
+        /* --------------------------------- UI ---------------------------------- */
+        function updateBalanceUI() {
+            const text = formatAmount(state.balance);
+            $('user-balance').innerText = text;
+            $('balance-mini').innerText = text;
+            if ($('account-balance')) $('account-balance').innerText = `${text} USDT`;
+        }
+
+        function updateAccountUI() {
+            const guest = $('account-guest');
+            const user = $('account-user');
+            if (!guest || !user) return;
+
+            if (state.user) {
+                guest.classList.add('hidden');
+                user.classList.remove('hidden');
+                $('account-username').innerText = state.user.username || 'player';
+                $('account-balance').innerText = `${formatAmount(state.balance)} USDT`;
+            } else {
+                guest.classList.remove('hidden');
+                user.classList.add('hidden');
+            }
+        }
+
+        function updateAvatar() {
+            const img = $('user-avatar');
+            if (!img) return;
+            const seed = state.user?.username || 'CryptoGambler';
+            img.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(seed)}`;
+        }
+
+        function updateRoundInfo() {
+            const round = state.round;
+            $('roundNumberLabel').innerText = round?.roundNumber ? `#${round.roundNumber}` : '—';
+            $('seedHashLabel').innerText = round?.serverSeedHash
+                ? shortHash(round.serverSeedHash)
+                : 'بانتظار الجولة';
+            $('edgeLabel').innerText = `${Number(state.houseEdgePercent || 0).toFixed(2)}%`;
+            $('roundStatus').innerText =
+                state.phase === 'running'
+                    ? 'مباشر — الجولة جارية'
+                    : state.phase === 'crashed'
+                        ? 'انتهت الجولة، البذرة مكشوفة'
+                        : state.phase === 'waiting'
+                            ? 'استعداد للجولة القادمة'
+                            : 'جارٍ الاتصال...';
+        }
+
+        function showToast(title, msg, type = 'success') {
+            const toast = $('toast');
+            const toastTitle = $('toast-title');
+            const toastMsg = $('toast-message');
+            const toastIcon = $('toast-icon');
+
+            toastTitle.innerText = title;
+            toastMsg.innerText = msg;
+
+            if (type === 'error') {
+                toast.style.borderColor = '#ef4444';
+                toastIcon.style.backgroundColor = '#ef4444';
+            } else {
+                toast.style.borderColor = '#00e676';
+                toastIcon.style.backgroundColor = '#00e676';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => toast.classList.add('translate-y-20', 'opacity-0'), 3200);
+        }
+
+        /* --------------------------------- dice -------------------------------- */
+        const slider = $('diceSlider');
+        const diceBox = $('diceBox');
+        const betAmount = $('betAmount');
+        const betBtn = $('betBtn');
+
+        function currentEdge() {
+            return Math.min(99.99, Math.max(0, Number(state.houseEdgePercent) || 0));
+        }
+
+        function maxTarget() {
+            return Math.min(99, Math.max(1, Math.floor((100 - currentEdge()) * 100) / 100));
+        }
+
+        function currentTarget() {
+            return Math.min(maxTarget(), Math.max(1, round2(slider.value)));
+        }
+
+        function currentMultiplier(target = currentTarget()) {
+            const value = (100 - currentEdge()) / Math.max(0.01, target);
+            return Math.max(0.0001, Math.min(10000, value));
+        }
+
+        function syncGameValues(value) {
+            const max = maxTarget();
+            slider.max = String(max);
+            $('maxTargetLabel').innerText = max % 1 === 0 ? max.toFixed(0) : max.toFixed(2);
+
+            const target = Math.min(max, Math.max(1, round2(value)));
+            if (Number(slider.value) !== target) slider.value = String(target);
+            const formatted = target.toFixed(2);
+
+            if (!state.rolling) {
+                diceBox.innerText = formatted;
+                diceBox.style.backgroundColor = '#ffffff';
+                diceBox.style.color = '#000000';
+                diceBox.style.boxShadow = '0 0 25px rgba(255,255,255,0.18)';
+            }
+
+            $('rollDisplay').innerText = formatted;
+            $('chanceDisplay').innerText = formatted;
+            $('payoutDisplay').innerText = currentMultiplier(target).toFixed(2);
+
+            slider.style.background = `linear-gradient(to left, #00e701 ${target}%, #e67e22 ${target}%)`;
+            recalculateWin();
+        }
+
+        function recalculateWin() {
+            const bet = parseFloat(betAmount.value) || 0;
+            const payout = currentMultiplier();
+            $('winAmount').value = (bet * payout).toFixed(6);
+        }
+
+        function adjustBet(factor) {
+            const current = parseFloat(betAmount.value) || 0;
+            betAmount.value = Math.max(0, current * factor).toFixed(2);
+            recalculateWin();
+        }
+
+        function setBet(value) {
+            betAmount.value = Number(value).toFixed(2);
+            recalculateWin();
+        }
+
+        function switchBetTab(tab) {
+            if (tab === 'auto') {
+                showToast('الوضع الآلي', 'سيتوفر قريبًا. استخدم الوضع اليدوي حاليًا.', 'error');
+                return;
+            }
+            state.betTab = 'manual';
+            $('tabManual').className = 'flex-1 py-1.5 text-center text-sm font-bold text-white bg-[#212630] rounded-md transition';
+            $('tabAuto').className = 'flex-1 py-1.5 text-center text-sm text-[#8b96a5] hover:text-white transition';
+        }
+
+        function startRollAnimation() {
+            diceBox.classList.add('animate-dice');
+            diceBox.style.backgroundColor = '#ffffff';
+            diceBox.style.color = '#000000';
+            diceBox.style.boxShadow = '0 0 25px rgba(255,255,255,0.18)';
+            clearInterval(state.rollTimer);
+            state.rollTimer = setInterval(() => {
+                diceBox.innerText = (Math.random() * 99.99).toFixed(2);
+            }, 55);
+        }
+
+        function stopRollAnimation() {
+            clearInterval(state.rollTimer);
+            state.rollTimer = null;
+            diceBox.classList.remove('animate-dice');
+        }
+
+        function setBetBusy(busy) {
+            betBtn.disabled = busy;
+            betBtn.innerText = busy ? 'جارٍ اللف...' : 'رهان';
+        }
+
+        function normalizeRoll(row) {
+            const status = row?.status || (row?.win ? 'won' : 'lost');
+            return {
+                id: row?.id || `${Date.now()}-${Math.random()}`,
+                status,
+                win: status === 'won',
+                roll: Number(row?.roll) || 0,
+                target: Number(row?.target) || 0,
+                amount: Number(row?.amount) || 0,
+                multiplier: Number(row?.multiplier) || 0,
+                payout: Number(row?.payout) || 0,
+                nonce: Number(row?.nonce) || 0,
+                serverSeedHash: row?.serverSeedHash || '',
+                clientSeed: row?.clientSeed || '',
+                serverSeed: row?.serverSeed || null,
+                roundNumber: row?.roundNumber != null ? Number(row.roundNumber) : null,
+                roundId: row?.roundId || '',
+                houseEdgePercent:
+                    row?.houseEdgePercent != null
+                        ? Number(row.houseEdgePercent)
+                        : Number(state.houseEdgePercent) || 0,
+                createdAt: row?.createdAt || new Date().toISOString(),
+            };
+        }
+
+        function applyBetResult(result) {
+            state.balance = Number(result.balance) || 0;
+            state.houseEdgePercent = Number(result.houseEdgePercent ?? state.houseEdgePercent) || 0;
+            updateBalanceUI();
+            updateAccountUI();
+
+            const roll = normalizeRoll({ ...result, amount: result.amount ?? parseFloat(betAmount.value) });
+            state.lastRoll = roll;
+            state.history = [roll, ...state.history.filter((item) => item.id !== roll.id)].slice(0, 50);
+
+            diceBox.innerText = roll.roll.toFixed(2);
+            if (roll.win) {
+                diceBox.style.backgroundColor = '#00e701';
+                diceBox.style.color = '#000000';
+                diceBox.style.boxShadow = '0 0 30px rgba(0,231,1,0.6)';
+                $('resultNote').innerText = `فوز! ${roll.roll.toFixed(2)} < ${roll.target.toFixed(2)} — عائد ${formatAmount(roll.payout)} USDT`;
+                showToast('فوز!', `${roll.roll.toFixed(2)} أقل من ${roll.target.toFixed(2)} — +${formatAmount(roll.payout)} USDT`);
+            } else {
+                diceBox.style.backgroundColor = '#ff4d4d';
+                diceBox.style.color = '#ffffff';
+                diceBox.style.boxShadow = '0 0 30px rgba(255,77,77,0.6)';
+                $('resultNote').innerText = `خسارة — ${roll.roll.toFixed(2)} لم يكن أقل من ${roll.target.toFixed(2)}`;
+                showToast('خسارة', `${roll.roll.toFixed(2)} لم يكن أقل من ${roll.target.toFixed(2)}`, 'error');
+            }
+
+            renderHistory();
+            updateRoundInfo();
+            if (!$('fair-modal').classList.contains('hidden')) {
+                populateFairModal();
+            }
+        }
+
+        async function triggerBet() {
+            if (state.rolling) return;
+
+            if (!state.user) {
+                openAccount();
+                showToast('تسجيل الدخول مطلوب', 'سجّل الدخول لبدء اللعب.', 'error');
+                return;
+            }
+
+            const amount = round2(betAmount.value);
+            const target = currentTarget();
+
+            if (!Number.isFinite(amount) || amount <= 0) {
+                return showToast('خطأ', 'أدخل مبلغ رهان صحيحًا.', 'error');
+            }
+            if (amount > state.balance) {
+                return showToast('رصيد غير كافٍ', 'المبلغ أكبر من رصيدك الحالي.', 'error');
+            }
+            if (target < 1 || target > maxTarget()) {
+                return showToast('خطأ', `الهدف يجب أن يكون بين 1 و${maxTarget()}.`, 'error');
+            }
+
+            state.rolling = true;
+            setBetBusy(true);
+            startRollAnimation();
+            $('resultNote').innerText = 'جارٍ استخدام بذرة Crash للحساب...';
+            const startedAt = Date.now();
+            let result = null;
+            let errorMessage = '';
+
+            try {
+                const response = await fetch('/api/dice/bet', {
+                    method: 'POST',
+                    headers: authHeaders({ 'Content-Type': 'application/json' }),
+                    body: JSON.stringify({ amount, target }),
+                });
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    if (response.status === 401) openAccount();
+                    throw new Error(data.error || 'تعذر تنفيذ الرهان.');
+                }
+                result = data;
+            } catch (error) {
+                errorMessage = error.message || 'تعذر تنفيذ الرهان.';
+            }
+
+            const remaining = Math.max(0, 800 - (Date.now() - startedAt));
+            if (remaining) await new Promise((resolve) => setTimeout(resolve, remaining));
+
+            stopRollAnimation();
+            state.rolling = false;
+            setBetBusy(false);
+
+            if (errorMessage) {
+                diceBox.innerText = currentTarget().toFixed(2);
+                diceBox.style.backgroundColor = '#ffffff';
+                diceBox.style.color = '#000000';
+                diceBox.style.boxShadow = '0 0 25px rgba(255,255,255,0.18)';
+                $('resultNote').innerText = 'اسحب المؤشر لتحديد فرصة الفوز — النتيجة أقل من الهدف = فوز.';
+                showToast('خطأ', errorMessage, 'error');
+                return;
+            }
+
+            applyBetResult(result);
+        }
+
+        /* ------------------------------- history ------------------------------- */
+        function renderHistory() {
+            const container = $('rollsList');
+            if (!container) return;
+            if (!state.history.length) {
+                container.innerHTML = '<span class="text-xs text-[#8b96a5]">لا توجد لفات بعد.</span>';
+                return;
+            }
+
+            container.innerHTML = state.history
+                .slice(0, 14)
+                .map((roll) => {
+                    const won = roll.status === 'won';
+                    return `<button type="button" onclick="openFairModalById('${roll.id}')" title="هدف ${roll.target.toFixed(2)} — ${won ? 'فوز' : 'خسارة'}" class="px-2.5 py-1 rounded-lg text-xs font-bold font-mono transition ${won ? 'bg-[#00e701]/15 text-[#00e701] border border-[#00e701]/40 hover:bg-[#00e701]/25' : 'bg-red-500/15 text-red-400 border border-red-500/40 hover:bg-red-500/25'}">${roll.roll.toFixed(2)}</button>`;
+                })
+                .join('');
+        }
+
+        async function loadDiceHistory() {
+            try {
+                const response = await fetch('/api/dice/history', { headers: authHeaders() });
+                if (!response.ok) return;
+                const data = await response.json();
+                state.history = (data.rolls || []).map(normalizeRoll);
+                if (Number.isFinite(Number(data.houseEdgePercent))) {
+                    state.houseEdgePercent = Number(data.houseEdgePercent);
+                }
+                renderHistory();
+                updateRoundInfo();
+                syncGameValues(slider.value);
+                if (state.selectedRoll) {
+                    const found = state.history.find((item) => item.id === state.selectedRoll.id);
+                    if (found) {
+                        state.selectedRoll = found;
+                        populateFairModal();
+                    }
+                }
+            } catch {
+                // Keep the current list on transient network errors.
+            }
+        }
+
+        /* -------------------------------- fairness ----------------------------- */
+        function openFairModalById(id) {
+            const roll = state.history.find((item) => item.id === id) || state.lastRoll;
+            openFairModal(roll || null);
+        }
+
+        function openFairModal(roll = null) {
+            state.selectedRoll = roll || state.lastRoll || state.history[0] || null;
+            const modal = $('fair-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            populateFairModal();
+        }
+
+        function closeFairModal() {
+            const modal = $('fair-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function populateFairModal() {
+            const roll = state.selectedRoll;
+            const round = state.round;
+            const roundNumber = roll?.roundNumber ?? round?.roundNumber;
+            const serverSeedHash = roll?.serverSeedHash || round?.serverSeedHash || '';
+            const clientSeed = roll?.clientSeed || round?.clientSeed || '';
+            const nonce = roll?.nonce ?? (round?.nonce ?? null);
+            const serverSeed = roll?.serverSeed || '';
+
+            $('fair-round').innerText = roundNumber ? `#${roundNumber}` : '—';
+            $('fair-result-state').innerText = roll
+                ? roll.status === 'won'
+                    ? 'فوز'
+                    : 'خسارة'
+                : '—';
+            $('fair-result-state').className = roll
+                ? `font-bold ${roll.status === 'won' ? 'text-green-400' : 'text-red-400'}`
+                : 'font-bold text-white';
+            $('fair-target').innerText = roll ? `${roll.target.toFixed(2)}%` : '—';
+            $('fair-roll').innerText = roll ? roll.roll.toFixed(2) : '—';
+            $('fair-multiplier').innerText = roll ? `${roll.multiplier.toFixed(2)}×` : '—';
+            $('fair-payout').innerText = roll ? `${formatAmount(roll.payout)} USDT` : '—';
+            $('fair-hash').innerText = serverSeedHash || '—';
+            $('fair-client-seed').innerText = clientSeed || '—';
+            $('fair-nonce').innerText = nonce != null ? String(nonce) : '—';
+            $('fair-salt').innerText =
+                clientSeed && nonce != null ? `${clientSeed}:${nonce}` : '—';
+
+            const input = $('fair-server-seed');
+            input.value = serverSeed || '';
+            input.placeholder = serverSeedHash
+                ? 'سيُكشف server seed بعد انتهاء جولة Crash، أو ألصقه هنا...'
+                : 'ألصق server seed للتحقق...';
+
+            $('fair-verify-result').innerHTML = roll
+                ? '<span class="text-gray-500">اضغط تحقق لحساب النتيجة من البذرة.</span>'
+                : '<span class="text-gray-500">لا توجد لفة محددة للتحقق بعد.</span>';
+
+            if (roll && serverSeed) verifyDiceRoll();
+        }
+
+        function verifyDiceRoll() {
+            const roll = state.selectedRoll;
+            const resultEl = $('fair-verify-result');
+            if (!roll) {
+                resultEl.innerHTML = '<span class="text-red-400">لا توجد لفة للتحقق.</span>';
+                return;
+            }
+
+            const rawSeed = ($('fair-server-seed')?.value || '').trim().toLowerCase();
+            const clientSeed = ($('fair-client-seed')?.innerText || '').trim();
+            const nonce = ($('fair-nonce')?.innerText || '').trim();
+            const expectedHash = ($('fair-hash')?.innerText || '').trim().toLowerCase();
+
+            if (!rawSeed || !/^[a-f0-9]+$/i.test(rawSeed)) {
+                resultEl.innerHTML = '<span class="text-red-400">أدخل Server Seed صالحًا (hex).</span>';
+                return;
+            }
+            if (!clientSeed || clientSeed === '—' || !nonce || nonce === '—') {
+                resultEl.innerHTML = '<span class="text-red-400">بيانات الجولة غير مكتملة بعد.</span>';
+                return;
+            }
+
+            const salt = `${clientSeed}:${nonce}`;
+            const hmac = CryptoJS.HmacSHA256(salt, rawSeed).toString();
+            const seed = hmac.slice(0, 13);
+            const r = parseInt(seed, 16);
+            const computedRoll = Math.floor((r / Math.pow(2, 52)) * 10000) / 100;
+            const computedHash = CryptoJS.SHA256(rawSeed).toString();
+            const hashMatch = expectedHash !== '—' ? computedHash === expectedHash : true;
+            const rollMatch = Math.abs(computedRoll - roll.roll) < 0.005;
+
+            resultEl.innerHTML = `
+                <div class="space-y-1">
+                    <div>Computed Roll: <span class="font-bold ${rollMatch ? 'text-green-400' : 'text-red-400'}">${computedRoll.toFixed(2)}</span></div>
+                    <div>Expected Roll: <span class="font-bold ${rollMatch ? 'text-green-400' : 'text-red-400'}">${roll.roll.toFixed(2)}</span></div>
+                    <div>HMAC: <span class="break-all text-[10px]">${hmac}</span></div>
+                    <div>SHA256(Server Seed): <span class="break-all text-[10px]">${computedHash}</span></div>
+                    <div>Hash match: <span class="${hashMatch ? 'text-green-400' : 'text-red-400'}">${hashMatch ? 'VALID ✓' : 'MISMATCH ✕'}</span></div>
+                    <div class="${rollMatch && hashMatch ? 'text-green-400' : 'text-red-400'}">${rollMatch && hashMatch ? 'تم التحقق بنجاح.' : 'النتيجة لا تطابق البذرة المدخلة.'}</div>
+                </div>
+            `;
+        }
+
+        $('fair-server-seed').addEventListener('input', () => {
+            if (state.selectedRoll) verifyDiceRoll();
+        });
+
+        /* ---------------------------------- auth -------------------------------- */
+        function openAccount() {
+            const modal = $('account-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            updateAccountUI();
+            if (!state.user) switchAuthTab('login');
+        }
+
+        function closeAccount() {
+            const modal = $('account-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            showAuthError('');
+        }
+
+        function switchAuthTab(tab) {
+            const loginForm = $('form-login');
+            const regForm = $('form-register');
+            const loginTab = $('auth-tab-login');
+            const regTab = $('auth-tab-register');
+
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                regForm.classList.add('hidden');
+                loginTab.className = 'flex-1 px-4 py-2 rounded-lg text-xs font-bold transition bg-card text-white shadow';
+                regTab.className = 'flex-1 px-4 py-2 rounded-lg text-xs font-bold transition text-gray-400 hover:text-white';
+            } else {
+                loginForm.classList.add('hidden');
+                regForm.classList.remove('hidden');
+                regTab.className = 'flex-1 px-4 py-2 rounded-lg text-xs font-bold transition bg-card text-white shadow';
+                loginTab.className = 'flex-1 px-4 py-2 rounded-lg text-xs font-bold transition text-gray-400 hover:text-white';
+            }
+            showAuthError('');
+        }
+
+        function showAuthError(message) {
+            const el = $('auth-error');
+            if (el) el.textContent = message || '';
+        }
+
+        function mapAuthError(message) {
+            if (/Invalid login credentials/i.test(message)) return 'البريد أو كلمة المرور غير صحيحة.';
+            if (/Email not confirmed/i.test(message)) return 'يرجى تأكيد بريدك الإلكتروني أولاً.';
+            if (/User already registered/i.test(message)) return 'هذا البريد مسجّل بالفعل.';
+            if (/rate limit/i.test(message)) return 'تم تجاوز الحد المؤقت. حاول لاحقًا.';
+            return message;
+        }
+
+        async function submitAuth(event, type) {
+            event.preventDefault();
+            showAuthError('');
+
+            if (state.config?.mode !== 'supabase' || !state.sb) {
+                return showAuthError('التسجيل غير متاح في وضع العرض التجريبي.');
+            }
+
+            try {
+                if (type === 'login') {
+                    const email = $('login-email').value.trim();
+                    const password = $('login-password').value;
+                    if (!email || !password) return showAuthError('أدخل البريد وكلمة المرور.');
+
+                    const { data, error } = await state.sb.auth.signInWithPassword({ email, password });
+                    if (error) return showAuthError(mapAuthError(error.message));
+                    state.session = data.session;
+                    closeAccount();
+                    connect(data.session.access_token);
+                    await refreshMe();
+                    await loadDiceHistory();
+                    showToast('تم تسجيل الدخول', 'مرحبًا بك في BC.Game');
+                } else {
+                    const username = $('reg-username').value.trim();
+                    const email = $('reg-email').value.trim();
+                    const password = $('reg-password').value;
+
+                    if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) {
+                        return showAuthError('اسم المستخدم 3-20 حرفًا (أحرف/أرقام/شرطة سفلية).');
+                    }
+                    if (!email || password.length < 6) {
+                        return showAuthError('أدخل بريدًا صحيحًا وكلمة مرور من 6 أحرف على الأقل.');
+                    }
+
+                    const response = await fetch('/api/auth/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, email, password }),
+                    });
+                    const result = await response.json().catch(() => ({}));
+                    if (!response.ok) return showAuthError(result.error || 'تعذر إنشاء الحساب.');
+
+                    const { data, error } = await state.sb.auth.signInWithPassword({ email, password });
+                    if (error) return showAuthError(mapAuthError(error.message));
+                    state.session = data.session;
+                    closeAccount();
+                    connect(data.session.access_token);
+                    await refreshMe();
+                    await loadDiceHistory();
+                    showToast('تم إنشاء الحساب', 'مرحبًا بك! يمكنك بدء اللعب الآن.');
+                }
+            } catch (err) {
+                showAuthError(err.message || 'حدث خطأ غير متوقع.');
+            }
+        }
+
+        async function logout() {
+            if (state.config?.mode !== 'supabase') {
+                closeAccount();
+                showToast('وضع العرض التجريبي', 'لا يوجد تسجيل خروج في هذا الوضع.');
+                return;
+            }
+
+            try {
+                await state.sb?.auth.signOut();
+            } catch {}
+
+            if (state.socket) {
+                state.socket.removeAllListeners();
+                state.socket.disconnect();
+                state.socket = null;
+            }
+
+            state.user = null;
+            state.session = null;
+            state.balance = 0;
+            state.history = [];
+            state.lastRoll = null;
+            state.selectedRoll = null;
+
+            updateBalanceUI();
+            updateAccountUI();
+            updateAvatar();
+            renderHistory();
+            closeAccount();
+            showToast('تم تسجيل الخروج', 'يمكنك الدخول مرة أخرى في أي وقت.');
+            connect(null);
+        }
+
+        async function refreshMe() {
+            try {
+                const response = await fetch('/api/me', { headers: authHeaders() });
+                if (!response.ok) return;
+                const data = await response.json();
+                if (!data?.id) return;
+                state.user = { id: data.id, username: data.username };
+                state.balance = Number(data.balance) || 0;
+                updateBalanceUI();
+                updateAccountUI();
+                updateAvatar();
+            } catch {}
+        }
+
+        function handleDeposit() {
+            if (!state.user) {
+                openAccount();
+                return;
+            }
+            showToast('الإيداع', 'الإيداع غير متاح في هذه النسخة التجريبية.', 'error');
+        }
+
+        /* --------------------------------- socket ------------------------------- */
+        function applyRoundState(snapshot) {
+            state.phase = snapshot?.phase || state.phase;
+            state.round = snapshot?.round || state.round;
+            if (snapshot?.houseEdgePercent != null) {
+                state.houseEdgePercent = Number(snapshot.houseEdgePercent) || 0;
+            }
+            updateRoundInfo();
+            syncGameValues(slider.value);
+        }
+
+        function connect(token) {
+            if (state.socket) {
+                state.socket.removeAllListeners();
+                state.socket.disconnect();
+            }
+
+            const socket = io({ auth: token ? { token } : {} });
+            state.socket = socket;
+
+            socket.on('connect_error', (error) => {
+                if (error.message === 'UNAUTHORIZED') {
+                    state.session = null;
+                    state.user = null;
+                    if (state.sb) state.sb.auth.signOut().catch(() => {});
+                    setTimeout(() => connect(null), 300);
+                }
+            });
+
+            socket.on('state', applyRoundState);
+
+            socket.on('round:waiting', (payload) => {
+                state.phase = 'waiting';
+                state.round = payload;
+                updateRoundInfo();
+                syncGameValues(slider.value);
+            });
+
+            socket.on('round:running', (payload) => {
+                state.phase = 'running';
+                state.round = { ...(state.round || {}), ...payload };
+                updateRoundInfo();
+            });
+
+            socket.on('round:crashed', (payload) => {
+                state.phase = 'crashed';
+                state.round = { ...(state.round || {}), ...payload };
+                updateRoundInfo();
+                setTimeout(loadDiceHistory, 350);
+            });
+
+            socket.on('house-edge', (payload) => {
+                const value = Number(payload?.houseEdgePercent);
+                if (Number.isFinite(value)) state.houseEdgePercent = value;
+                updateRoundInfo();
+                syncGameValues(slider.value);
+            });
+
+            socket.on('me', (me) => {
+                if (!me && state.config?.mode === 'memory') return;
+                state.user = me || null;
+                updateAccountUI();
+                updateAvatar();
+                if (me) {
+                    refreshMe();
+                    loadDiceHistory();
+                }
+            });
+
+            socket.on('balance', (payload) => {
+                state.balance = Number(payload?.balance) || 0;
+                updateBalanceUI();
+                updateAccountUI();
+            });
+
+            socket.on('fatal', (payload) => {
+                showToast('خطأ', payload?.error || 'حدث خطأ غير متوقع.', 'error');
+            });
+        }
+
+        /* ---------------------------------- boot -------------------------------- */
+        async function boot() {
+            try {
+                state.config = await fetch('/api/config').then((response) => response.json());
+            } catch {
+                showToast('خطأ', 'تعذر تحميل إعدادات اللعبة.', 'error');
+            }
+
+            state.houseEdgePercent = Number(state.config?.houseEdgePercent ?? 1) || 0;
+            slider.addEventListener('input', (event) => syncGameValues(event.target.value));
+            betAmount.addEventListener('input', recalculateWin);
+            syncGameValues(slider.value);
+            updateRoundInfo();
+
+            if (state.config?.mode === 'supabase' && window.supabase) {
+                state.sb = window.supabase.createClient(
+                    state.config.supabaseUrl,
+                    state.config.supabaseAnonKey
+                );
+
+                const { data } = await state.sb.auth.getSession();
+                if (data?.session) {
+                    state.session = data.session;
+                    connect(data.session.access_token);
+                    await refreshMe();
+                    await loadDiceHistory();
+                } else {
+                    connect(null);
+                }
+            } else {
+                connect(null);
+                try {
+                    const me = await fetch('/api/me').then((response) => response.json());
+                    if (me?.id) {
+                        state.user = { id: me.id, username: me.username };
+                        state.balance = Number(me.balance) || 0;
+                    }
+                } catch {}
+                await loadDiceHistory();
+            }
+
+            updateBalanceUI();
+            updateAccountUI();
+            updateAvatar();
+        }
+
+        boot();
+    </script>
+</body>
+</html>

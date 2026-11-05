@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="ar" dir="rtl" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>BC.GAME - الرئيسية</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              bgDark: '#121418',
+              cardBg: '#1a1d24',
+              accentGreen: '#00e701',
+              borderDark: '#2f3542',
+              sidebarBg: '#181b20',
+              bcBg: '#1a1d20',
+              bcCard: '#24272c',
+              bcCardHover: '#2a2e33',
+              bcInput: '#1d2024',
+              bcGreen: '#26a17b',
+              bcGreenHover: '#2bc495',
+              bcBrightGreen: '#00e676',
+              bcRed: '#ed4245',
+              bcOrange: '#f5a623',
+              bcTextGray: '#98a7b5',
+              card: '#24272c',
+              input: '#1d2024'
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      .bg-card { background-color: #24272c; }
+      .bg-input { background-color: #1d2024; }
+      .accent-green { color: #00e676; }
+      .btn-green {
+        background: linear-gradient(135deg, #00e676 0%, #10b981 100%);
+        color: #0d131c;
+        font-weight: 700;
+      }
+      .btn-green:hover { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+    </style>
+  </head>
+  <body class="bg-[#121418] text-[#b1bad3] min-h-screen flex flex-col font-sans select-none overflow-x-hidden">
+    
+    <!-- Header (الشريط العلوي) -->
+    <header class="bg-bcCard border-b border-gray-800 px-2 sm:px-4 py-2 sm:py-2.5 sticky top-0 z-50 flex items-center justify-between gap-1 sm:gap-2">
+      <div class="flex items-center space-x-2 sm:space-x-3 space-x-reverse">
+        <button class="hidden sm:inline-flex text-bcTextGray hover:text-white p-2 rounded-lg hover:bg-bcBg transition">
+          <i class="fa-solid fa-bars text-lg"></i>
+        </button>
+        <a href="/" class="flex items-center space-x-2 space-x-reverse cursor-pointer">
+          <div class="w-8 h-8 bg-bcBrightGreen rounded-lg flex items-center justify-center font-bold text-black text-xl">
+            <i class="fa-solid fa-ghost"></i>
+          </div>
+          <span class="font-extrabold text-xl tracking-wider text-white hidden sm:inline">BC.GAME</span>
+          <span class="px-1 sm:px-1.5 py-0.5 rounded-md bg-bcInput border border-gray-700 text-[9px] sm:text-[10px] font-bold text-bcBrightGreen">HOME</span>
+        </a>
+      </div>
+
+      <div class="flex items-center bg-bcInput rounded-xl p-1 border border-gray-800">
+        <div class="flex items-center px-2 sm:px-3 space-x-1.5 sm:space-x-2 space-x-reverse">
+          <i class="fa-solid fa-wallet text-bcBrightGreen text-base"></i>
+          <span class="hidden sm:inline text-xs text-bcTextGray">USD</span>
+          <span id="user-balance" class="font-mono font-bold text-white text-sm sm:text-base">0.00</span>
+        </div>
+        <button onclick="handleDeposit()" class="bg-bcGreen hover:bg-bcGreenHover text-white px-2 sm:px-4 py-1.5 rounded-lg font-bold text-xs flex items-center space-x-1 space-x-reverse transition shadow-md">
+          <i class="fa-solid fa-plus text-xs"></i>
+          <span class="hidden sm:inline">إيداع</span>
+        </button>
+      </div>
+
+      <div class="flex items-center space-x-1.5 sm:space-x-2 space-x-reverse">
+        <button onclick="showToast('الإشعارات', 'لا توجد إشعارات جديدة.')" class="hidden sm:flex w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-bcInput hover:bg-bcCardHover text-bcTextGray hover:text-white items-center justify-center transition relative">
+          <i class="fa-regular fa-bell"></i>
+          <span class="w-2 h-2 bg-bcBrightGreen rounded-full absolute top-2 right-2"></span>
+        </button>
+        <button id="guest-login-btn" onclick="openAccount()" class="bg-bcGreen hover:bg-bcGreenHover text-white px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition">
+          دخول<span class="hidden sm:inline"> / تسجيل</span>
+        </button>
+        <div id="account-button" onclick="openAccount()" title="الحساب" class="hidden items-center space-x-2 space-x-reverse bg-bcInput p-1 pr-1 sm:pr-2 rounded-xl cursor-pointer hover:bg-bcCardHover transition">
+          <img id="user-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=CryptoGambler" alt="Avatar" class="w-7 h-7 rounded-lg bg-gray-700">
+          <i class="fa-solid fa-chevron-down hidden sm:inline text-xs text-bcTextGray pl-1"></i>
+        </div>
+      </div>
+    </header>
+
+    <!-- Layout Container -->
+    <div class="flex flex-1">
+      
+      <!-- Right Sidebar (الشريط الجانبي الأيمن) -->
+      <aside class="w-14 bg-[#181b20] border-l border-[#2f3542] flex flex-col items-center py-4 gap-5 shrink-0 hidden md:flex">
+        <button class="p-2 text-[#8b96a5] hover:text-[#00e701] transition"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg></button>
+        <button class="p-2 text-[#8b96a5] hover:text-[#00e701] transition"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></button>
+        <button class="p-2 text-[#8b96a5] hover:text-[#00e701] transition"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2zm0-6h2v4h-2z"/></svg></button>
+        <button class="p-2 text-[#8b96a5] hover:text-[#00e701] transition"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg></button>
+        <button class="p-2 text-[#8b96a5] hover:text-[#00e701] transition"><svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></button>
+      </aside>
+
+      <!-- Main Section -->
+      <main class="flex-1 p-4 md:p-6 max-w-[1400px] mx-auto w-full">
+        
+        <div class="flex justify-center items-center mb-6 text-center">
+          <h1 class="text-xl md:text-2xl font-black text-white flex items-center gap-2">
+            BC النسخ الأصلية
+          </h1>
+        </div>
+
+        <!-- Games Grid -->
+        <div class="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
+          
+          <!-- 1. لعبة كراش -->
+          <a href="/crash" data-requires-auth class="group relative bg-gradient-to-b from-[#8e24aa] to-[#4a148c] rounded-xl aspect-[4/5] p-3 flex flex-col justify-between overflow-hidden border border-white/10 hover:border-[#00e701] transition-all duration-300 hover:-translate-y-1 shadow-lg">
+            <div class="flex justify-start">
+              <span class="bg-black/40 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                <span class="w-1.5 h-1.5 bg-[#00e701] rounded-full animate-pulse"></span> 1771
+              </span>
+            </div>
+            <div class="text-center z-10">
+              <h3 class="text-white font-extrabold text-lg leading-tight group-hover:scale-105 transition">كراش</h3>
+              <p class="text-[10px] text-white/70 font-semibold mt-0.5">الألعاب الأصلية</p>
+            </div>
+          </a>
+
+          <!-- 2. النرد الكلاسيكي (مربوط بصفحة الدايس) -->
+          <a href="/dice" data-requires-auth class="group relative bg-gradient-to-b from-[#2e7d32] to-[#1b5e20] rounded-xl aspect-[4/5] p-3 flex flex-col justify-between overflow-hidden border-2 border-[#00e701] hover:border-white transition-all duration-300 hover:-translate-y-1 shadow-xl shadow-[#00e701]/10">
+            <div class="flex justify-start">
+              <span class="bg-black/40 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                <span class="w-1.5 h-1.5 bg-[#00e701] rounded-full animate-pulse"></span> 56
+              </span>
+            </div>
+            <div class="text-center z-10">
+              <h3 class="text-white font-black text-lg leading-tight group-hover:scale-105 transition">النرد الكلاسيكي</h3>
+              <p class="text-[10px] text-[#00e701] font-bold mt-0.5">الألعاب الأصلية</p>
+            </div>
+          </a>
+
+        </div>
+
+      </main>
+
+    </div>
+
+    <!-- الحساب / تسجيل الدخول -->
+    <div id="account-modal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div class="w-full max-w-md bg-card border border-gray-800 rounded-2xl shadow-2xl p-5 relative">
+            <button onclick="closeAccount()" class="absolute top-3 left-3 w-8 h-8 rounded-lg bg-input hover:bg-gray-800 text-gray-400 hover:text-white flex items-center justify-center transition text-lg">×</button>
+
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-xl font-black tracking-wider text-white">BC.<span class="accent-green">GAME</span></span>
+                <span class="text-[11px] text-gray-500">حسابك في BC.Game</span>
+            </div>
+
+            <div id="account-guest">
+                <div class="flex bg-input p-1 rounded-xl w-full mb-4 border border-gray-800">
+                    <button id="auth-tab-login" onclick="switchAuthTab('login')" class="flex-1 px-4 py-2 rounded-lg text-xs font-bold transition bg-card text-white shadow">تسجيل الدخول</button>
+                    <button id="auth-tab-register" onclick="switchAuthTab('register')" class="flex-1 px-4 py-2 rounded-lg text-xs font-bold transition text-gray-400 hover:text-white">إنشاء حساب</button>
+                </div>
+
+                <form id="form-login" onsubmit="submitAuth(event, 'login')" class="flex flex-col gap-3">
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">البريد الإلكتروني</label>
+                        <input id="login-email" type="email" required autocomplete="email" class="w-full bg-input border border-gray-700/80 rounded-xl py-2.5 px-3 text-white font-mono focus:outline-none focus:border-green-400 transition" placeholder="you@example.com">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">كلمة المرور</label>
+                        <input id="login-password" type="password" required autocomplete="current-password" class="w-full bg-input border border-gray-700/80 rounded-xl py-2.5 px-3 text-white font-mono focus:outline-none focus:border-green-400 transition" placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="btn-green w-full py-3 rounded-xl text-sm mt-1">دخول</button>
+                </form>
+
+                <form id="form-register" onsubmit="submitAuth(event, 'register')" class="flex flex-col gap-3 hidden">
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">اسم المستخدم</label>
+                        <input id="reg-username" type="text" required autocomplete="username" class="w-full bg-input border border-gray-700/80 rounded-xl py-2.5 px-3 text-white font-mono focus:outline-none focus:border-green-400 transition" placeholder="username">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">البريد الإلكتروني</label>
+                        <input id="reg-email" type="email" required autocomplete="email" class="w-full bg-input border border-gray-700/80 rounded-xl py-2.5 px-3 text-white font-mono focus:outline-none focus:border-green-400 transition" placeholder="you@example.com">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">كلمة المرور</label>
+                        <input id="reg-password" type="password" required autocomplete="new-password" class="w-full bg-input border border-gray-700/80 rounded-xl py-2.5 px-3 text-white font-mono focus:outline-none focus:border-green-400 transition" placeholder="6 أحرف على الأقل">
+                    </div>
+                    <button type="submit" class="btn-green w-full py-3 rounded-xl text-sm mt-1">إنشاء الحساب</button>
+                </form>
+
+                <div id="auth-error" class="text-red-500 text-xs mt-3 min-h-[16px]"></div>
+            </div>
+
+            <div id="account-user" class="hidden">
+                <div class="bg-input rounded-xl border border-gray-800 p-4 mb-4">
+                    <div class="text-xs text-gray-400">مسجّل الدخول باسم</div>
+                    <div id="account-username" class="font-bold text-white text-lg"></div>
+                    <div class="text-xs text-gray-400 mt-2">الرصيد</div>
+                    <div id="account-balance" class="font-mono font-bold text-green-400 text-2xl"></div>
+                </div>
+                <button onclick="logout()" class="w-full py-3 rounded-xl bg-red-500/90 hover:bg-red-500 text-white font-extrabold text-sm transition">تسجيل الخروج</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- إشعار -->
+    <div id="toast" class="fixed bottom-5 left-5 bg-card border-r-4 border-green-400 text-white px-4 py-3 rounded-xl shadow-2xl z-50 transform translate-y-20 opacity-0 transition-all duration-300 flex items-center gap-3">
+        <div id="toast-icon" class="w-2.5 h-2.5 rounded-full bg-green-400 shrink-0"></div>
+        <div>
+            <div id="toast-title" class="font-bold text-xs">تم</div>
+            <div id="toast-message" class="text-gray-400 text-[11px]"></div>
+        </div>
+    </div>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+
+        const state = {
+            config: null,
+            sb: null,
+            session: null,
+            user: null,
+            balance: 0,
+            pendingGame: null,
+            toastTimer: null,
+            booted: false,
+        };
+
+        function formatAmount(value) {
+            return Number(value || 0).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            });
+        }
+
+        function authHeaders(extra = {}) {
+            const headers = { ...extra };
+            if (state.session?.access_token) {
+                headers.Authorization = `Bearer ${state.session.access_token}`;
+            }
+            return headers;
+        }
+
+        function updateBalanceUI() {
+            const text = formatAmount(state.balance);
+            if ($('user-balance')) $('user-balance').innerText = text;
+            if ($('account-balance')) $('account-balance').innerText = `${text} USDT`;
+        }
+
+        function updateAccountUI() {
+            const guest = $('account-guest');
+            const user = $('account-user');
+            const guestBtn = $('guest-login-btn');
+            const accountBtn = $('account-button');
+
+            if (state.user) {
+                guest?.classList.add('hidden');
+                user?.classList.remove('hidden');
+                guestBtn?.classList.add('hidden');
+                accountBtn?.classList.remove('hidden');
+                accountBtn?.classList.add('flex');
+                if ($('account-username')) $('account-username').innerText = state.user.username || 'player';
+                if ($('account-balance')) $('account-balance').innerText = `${formatAmount(state.balance)} USDT`;
+            } else {
+                guest?.classList.remove('hidden');
+                user?.classList.add('hidden');
+                guestBtn?.classList.remove('hidden');
+                accountBtn?.classList.add('hidden');
+                accountBtn?.classList.remove('flex');
+            }
+        }
+
+        function updateAvatar() {
+            const img = $('user-avatar');
+            if (!img) return;
+            const seed = state.user?.username || 'CryptoGambler';
+            img.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(seed)}`;
+        }
+
+        function showToast(title, message, type = 'success') {
+            const toast = $('toast');
+            const icon = $('toast-icon');
+            if (!toast) return;
+            if ($('toast-title')) $('toast-title').innerText = title || 'تم';
+            if ($('toast-message')) $('toast-message').innerText = message || '';
+            if (icon) {
+                icon.className = `w-2.5 h-2.5 rounded-full shrink-0 ${type === 'error' ? 'bg-red-400' : 'bg-green-400'}`;
+            }
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            clearTimeout(state.toastTimer);
+            state.toastTimer = setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3200);
+        }
+
+        function openAccount() {
+            const modal = $('account-modal');
+            if (!modal) return;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            updateAccountUI();
+            if (!state.user) switchAuthTab('login');
+        }
+
+        function closeAccount() {
+            const modal = $('account-modal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            showAuthError('');
+            state.pendingGame = null;
+        }
+
+        function switchAuthTab(tab) {
+            const loginForm = $('form-login');
+            const regForm = $('form-register');
+            const loginTab = $('auth-tab-login');
+            const regTab = $('auth-tab-register');
+            if (!loginForm || !regForm || !loginTab || !regTab) return;
+
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                regForm.classList.add('hidden');
+                loginTab.className = 'flex-1 px-4 py-2 rounded-lg text-xs font-bold transition bg-card text-white shadow';
+                regTab.className = 'flex-1 px-4 py-2 rounded-lg text-xs font-bold transition text-gray-400 hover:text-white';
+            } else {
+                loginForm.classList.add('hidden');
+                regForm.classList.remove('hidden');
+                regTab.className = 'flex-1 px-4 py-2 rounded-lg text-xs font-bold transition bg-card text-white shadow';
+                loginTab.className = 'flex-1 px-4 py-2 rounded-lg text-xs font-bold transition text-gray-400 hover:text-white';
+            }
+            showAuthError('');
+        }
+
+        function showAuthError(message) {
+            const el = $('auth-error');
+            if (el) el.textContent = message || '';
+        }
+
+        function mapAuthError(message) {
+            if (/Invalid login credentials/i.test(message)) return 'البريد أو كلمة المرور غير صحيحة.';
+            if (/Email not confirmed/i.test(message)) return 'يرجى تأكيد بريدك الإلكتروني أولاً.';
+            if (/User already registered/i.test(message)) return 'هذا البريد مسجّل بالفعل.';
+            if (/rate limit/i.test(message)) return 'تم تجاوز الحد المؤقت. حاول لاحقًا.';
+            return message;
+        }
+
+        async function submitAuth(event, type) {
+            event.preventDefault();
+            showAuthError('');
+
+            if (state.config?.mode !== 'supabase' || !state.sb) {
+                return showAuthError('التسجيل غير متاح في وضع العرض التجريبي.');
+            }
+
+            try {
+                let session = null;
+
+                if (type === 'login') {
+                    const email = $('login-email').value.trim();
+                    const password = $('login-password').value;
+                    if (!email || !password) return showAuthError('أدخل البريد وكلمة المرور.');
+
+                    const { data, error } = await state.sb.auth.signInWithPassword({ email, password });
+                    if (error) return showAuthError(mapAuthError(error.message));
+                    session = data.session;
+                } else {
+                    const username = $('reg-username').value.trim();
+                    const email = $('reg-email').value.trim();
+                    const password = $('reg-password').value;
+
+                    if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) {
+                        return showAuthError('اسم المستخدم 3-20 حرفًا (أحرف/أرقام/شرطة سفلية).');
+                    }
+                    if (!email || password.length < 6) {
+                        return showAuthError('أدخل بريدًا صحيحًا وكلمة مرور من 6 أحرف على الأقل.');
+                    }
+
+                    const response = await fetch('/api/auth/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, email, password }),
+                    });
+                    const result = await response.json().catch(() => ({}));
+                    if (!response.ok) return showAuthError(result.error || 'تعذر إنشاء الحساب.');
+
+                    const { data, error } = await state.sb.auth.signInWithPassword({ email, password });
+                    if (error) return showAuthError(mapAuthError(error.message));
+                    session = data.session;
+                }
+
+                state.session = session;
+                const target = state.pendingGame;
+                closeAccount();
+                await refreshMe();
+
+                if (!state.user) {
+                    showAuthError('تعذر تحميل بيانات الحساب. حاول مرة أخرى.');
+                    return;
+                }
+
+                showToast(
+                    type === 'login' ? 'تم تسجيل الدخول' : 'تم إنشاء الحساب',
+                    'مرحبًا بك في BC.Game'
+                );
+
+                if (target) window.location.href = target;
+            } catch (err) {
+                showAuthError(err.message || 'حدث خطأ غير متوقع.');
+            }
+        }
+
+        async function logout() {
+            if (state.config?.mode !== 'supabase') {
+                closeAccount();
+                showToast('وضع العرض التجريبي', 'لا يوجد تسجيل خروج في هذا الوضع.');
+                return;
+            }
+
+            try {
+                await state.sb?.auth.signOut();
+            } catch {}
+
+            state.user = null;
+            state.session = null;
+            state.balance = 0;
+            updateBalanceUI();
+            updateAccountUI();
+            updateAvatar();
+            closeAccount();
+            showToast('تم تسجيل الخروج', 'يمكنك الدخول مرة أخرى في أي وقت.');
+        }
+
+        async function refreshMe() {
+            try {
+                const response = await fetch('/api/me', { headers: authHeaders() });
+                if (!response.ok) {
+                    state.user = null;
+                    state.balance = 0;
+                    updateBalanceUI();
+                    updateAccountUI();
+                    updateAvatar();
+                    return;
+                }
+                const data = await response.json();
+                if (!data?.id) return;
+                state.user = { id: data.id, username: data.username };
+                state.balance = Number(data.balance) || 0;
+                updateBalanceUI();
+                updateAccountUI();
+                updateAvatar();
+            } catch {}
+        }
+
+        function handleDeposit() {
+            if (!state.user) {
+                openAccount();
+                return;
+            }
+            showToast('الإيداع', 'الإيداع غير متاح في هذه النسخة التجريبية.', 'error');
+        }
+
+        function openAuthForGame(href) {
+            state.pendingGame = href;
+            openAccount();
+            switchAuthTab('login');
+            showToast('تسجيل الدخول مطلوب', 'سجّل الدخول أو أنشئ حسابًا للعب.');
+        }
+
+        function bindGameLinks() {
+            document.addEventListener('click', (event) => {
+                const link = event.target.closest('[data-requires-auth]');
+                if (!link) return;
+
+                if (state.booted && state.user) return;
+                event.preventDefault();
+
+                if (!state.booted) {
+                    state.pendingGame = link.getAttribute('href');
+                    showToast('جارٍ التحقق', 'لحظة من فضلك...');
+                    return;
+                }
+
+                openAuthForGame(link.getAttribute('href'));
+            }, true);
+        }
+
+        async function boot() {
+            try {
+                state.config = await fetch('/api/config').then((response) => response.json());
+            } catch {
+                showToast('خطأ', 'تعذر تحميل إعدادات الموقع.', 'error');
+            }
+
+            if (state.config?.mode === 'supabase' && window.supabase) {
+                try {
+                    state.sb = window.supabase.createClient(
+                        state.config.supabaseUrl,
+                        state.config.supabaseAnonKey
+                    );
+                    const { data } = await state.sb.auth.getSession();
+                    if (data?.session) state.session = data.session;
+                } catch {}
+            }
+
+            await refreshMe();
+            updateBalanceUI();
+            updateAccountUI();
+            updateAvatar();
+            state.booted = true;
+
+            if (state.pendingGame) {
+                const target = state.pendingGame;
+                state.pendingGame = null;
+                if (state.user) {
+                    window.location.href = target;
+                } else {
+                    openAuthForGame(target);
+                }
+            }
+        }
+
+        bindGameLinks();
+        boot();
+    </script>
+
+  </body>
+</html>

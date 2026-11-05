@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="ar" dir="rtl" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>BC.GAME - Classic Dice</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              bgDark: '#1a1d24',
+              bgMain: '#121418',
+              accentGreen: '#00e701',
+              borderDark: '#2f3542',
+              cardDark: '#212630'
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      /* Custom Slider Styles */
+      input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 24px;
+        width: 24px;
+        border-radius: 6px;
+        background: #ffffff;
+        cursor: pointer;
+        border: 2px solid #2f3542;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      }
+      input[type=range]::-moz-range-thumb {
+        height: 24px;
+        width: 24px;
+        border-radius: 6px;
+        background: #ffffff;
+        cursor: pointer;
+        border: 2px solid #2f3542;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      }
+      /* أنيميشن اهتزاز النرد أثناء الرمي */
+      @keyframes shakeDice {
+        0% { transform: scale(1.1) rotate(0deg); }
+        25% { transform: scale(1.1) rotate(-5deg); }
+        50% { transform: scale(1.1) rotate(5deg); }
+        75% { transform: scale(1.1) rotate(-3deg); }
+        100% { transform: scale(1) rotate(0deg); }
+      }
+      .animate-dice {
+        animation: shakeDice 0.1s infinite;
+      }
+    </style>
+  </head>
+  <body class="bg-[#121418] text-[#b1bad3] min-h-screen flex flex-col font-sans select-none">
+    
+    <!-- Header -->
+    <header class="bg-[#1a1d24] border-b border-[#2f3542] px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <span class="text-[#00e701] font-extrabold text-xl flex items-center gap-1">
+          <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          BC.GAME
+        </span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="border border-[#2f3542] text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-[#212630] transition">تسجيل الدخول</button>
+        <button class="bg-[#00e701] text-black px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-[#00c701] transition">اشتراك</button>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 max-w-[1400px] w-full mx-auto p-3 md:p-6 flex flex-col lg:flex-row gap-4">
+      
+      <!-- Left Sidebar (Bet Controls) -->
+      <aside class="w-full lg:w-[320px] bg-[#1a1d24] border border-[#2f3542] rounded-xl p-4 flex flex-col gap-4 shrink-0">
+        <!-- Tabs -->
+        <div class="flex bg-[#121418] p-1 rounded-lg">
+          <button id="tabManual" class="flex-1 py-1.5 text-center text-sm font-bold text-white bg-[#212630] rounded-md transition">يدوي</button>
+          <button id="tabAuto" class="flex-1 py-1.5 text-center text-sm text-[#8b96a5] hover:text-white transition">آلي</button>
+        </div>
+
+        <!-- Amount Input -->
+        <div class="flex flex-col gap-2">
+          <div class="flex justify-between text-xs text-[#8b96a5]">
+            <span>المبلغ</span>
+            <span>0 USD</span>
+          </div>
+          <div class="flex items-center bg-[#121418] border border-[#2f3542] rounded-lg px-3 py-2">
+            <input type="number" id="betAmount" value="10.00" step="0.01" class="w-full bg-transparent text-white outline-none font-semibold text-sm" />
+            <span class="text-xs text-[#8b96a5] mr-2">USD</span>
+          </div>
+          <div class="grid grid-cols-4 gap-1.5 mt-1">
+            <button onclick="adjustBet(0.5)" class="bg-[#212630] hover:bg-[#2f3542] text-white py-1.5 rounded-md text-xs font-semibold transition">1/2</button>
+            <button onclick="adjustBet(2)" class="bg-[#212630] hover:bg-[#2f3542] text-white py-1.5 rounded-md text-xs font-semibold transition">2x</button>
+            <button onclick="setBet(10)" class="bg-[#212630] hover:bg-[#2f3542] text-white py-1.5 rounded-md text-xs font-semibold transition">10</button>
+            <button onclick="setBet(100)" class="bg-[#212630] hover:bg-[#2f3542] text-white py-1.5 rounded-md text-xs font-semibold transition">100</button>
+          </div>
+        </div>
+
+        <!-- Win Amount -->
+        <div class="flex flex-col gap-2">
+          <span class="text-xs text-[#8b96a5]">مبلغ الفوز المتوقع</span>
+          <div class="flex items-center bg-[#121418] border border-[#2f3542] rounded-lg px-3 py-2">
+            <input type="text" id="winAmount" value="0.000000" readonly class="w-full bg-transparent text-[#00e701] outline-none font-bold text-sm" />
+            <span class="text-xs text-[#8b96a5] mr-2">USD</span>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button id="betBtn" onclick="triggerBet()" class="w-full bg-[#00e701] hover:bg-[#00c701] text-black font-extrabold py-3 rounded-lg text-base transition shadow-lg shadow-[#00e701]/10 active:scale-[0.99]">
+          رهان
+        </button>
+      </aside>
+
+      <!-- Right Panel (Interactive Game Area) -->
+      <section class="flex-1 bg-[#1a1d24] border border-[#2f3542] rounded-xl p-4 md:p-6 flex flex-col justify-between gap-6">
+        
+        <!-- Game Canvas / Animation Screen -->
+        <div class="bg-[#121418] border border-[#2f3542] rounded-lg min-h-[320px] flex flex-col items-center justify-center relative p-6">
+          
+          <!-- Dice Display Box -->
+          <div id="diceBox" class="bg-white text-black font-black text-3xl px-8 py-3 rounded-2xl shadow-[0_0_25px_rgba(255,255,255,0.2)] mb-12 transition-all duration-200">
+            50.00
+          </div>
+
+          <!-- Interactive Slider -->
+          <div class="w-full max-w-[550px] relative">
+            <input 
+              type="range" 
+              min="0" 
+              max="100" 
+              value="50" 
+              step="0.01" 
+              id="diceSlider" 
+              class="w-full h-3 rounded-lg appearance-none outline-none cursor-pointer"
+              style="background: linear-gradient(to left, #00e701 50%, #e67e22 50%);"
+            />
+            <div class="flex justify-between text-xs text-[#8b96a5] font-semibold mt-3 px-1">
+              <span>0</span>
+              <span>25</span>
+              <span>50</span>
+              <span>75</span>
+              <span>100</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controls Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          
+          <div class="bg-[#121418] border border-[#2f3542] p-3 rounded-lg flex flex-col gap-1">
+            <span class="text-xs text-[#8b96a5]">صرف</span>
+            <div class="flex justify-between items-center text-white font-bold text-sm">
+              <span id="payoutDisplay">1.96</span>
+              <span class="text-[#8b96a5]">×</span>
+            </div>
+          </div>
+
+          <div class="bg-[#121418] border border-[#2f3542] p-3 rounded-lg flex flex-col gap-1">
+            <span class="text-xs text-[#8b96a5]">لفة تحت</span>
+            <div class="flex justify-between items-center text-white font-bold text-sm">
+              <span id="rollDisplay">50.00</span>
+              <span class="text-[#8b96a5]">🔄</span>
+            </div>
+          </div>
+
+          <div class="bg-[#121418] border border-[#2f3542] p-3 rounded-lg flex flex-col gap-1">
+            <span class="text-xs text-[#8b96a5]">فرصة الفوز</span>
+            <div class="flex justify-between items-center text-white font-bold text-sm">
+              <span id="chanceDisplay">50.00</span>
+              <span class="text-[#8b96a5]">%</span>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+    </main>
+
+    <!-- JavaScript Logic -->
+    <script>
+      const slider = document.getElementById('diceSlider');
+      const diceBox = document.getElementById('diceBox');
+      const rollDisplay = document.getElementById('rollDisplay');
+      const chanceDisplay = document.getElementById('chanceDisplay');
+      const payoutDisplay = document.getElementById('payoutDisplay');
+      const betAmount = document.getElementById('betAmount');
+      const winAmount = document.getElementById('winAmount');
+      const betBtn = document.getElementById('betBtn');
+
+      let isRolling = false;
+
+      function syncGameValues(val) {
+        const num = parseFloat(val);
+        const formatted = num.toFixed(2);
+        
+        if(!isRolling) {
+          diceBox.innerText = formatted;
+          diceBox.style.backgroundColor = "#ffffff";
+          diceBox.style.color = "#000000";
+        }
+        
+        rollDisplay.innerText = formatted;
+        chanceDisplay.innerText = formatted;
+
+        // Calculate Payout Multiplier
+        let payout = num > 0 ? (98 / num) : 99;
+        if (payout > 9900) payout = 9900;
+        payoutDisplay.innerText = payout.toFixed(2);
+
+        // Update Gradient dynamic track
+        slider.style.background = `linear-gradient(to left, #00e701 ${num}%, #e67e22 ${num}%)`;
+
+        recalculateWin();
+      }
+
+      function recalculateWin() {
+        const bet = parseFloat(betAmount.value) || 0;
+        const payout = parseFloat(payoutDisplay.innerText) || 1;
+        winAmount.value = (bet * payout).toFixed(6);
+      }
+
+      function adjustBet(factor) {
+        const current = parseFloat(betAmount.value) || 0;
+        betAmount.value = (current * factor).toFixed(2);
+        recalculateWin();
+      }
+
+      function setBet(val) {
+        betAmount.value = val.toFixed(2);
+        recalculateWin();
+      }
+
+      // حركة تدوير النرد وحسابه عند ضغط رهان
+      function triggerBet() {
+        if (isRolling) return;
+        isRolling = true;
+        betBtn.disabled = true;
+        betBtn.style.opacity = "0.6";
+
+        diceBox.classList.add('animate-dice');
+        diceBox.style.backgroundColor = "#ffffff";
+        diceBox.style.color = "#000000";
+
+        // تأثير السحب والتنقل السريع بين الأرقام أثناء الحركة
+        let counter = 0;
+        const rollInterval = setInterval(() => {
+          const randomVal = (Math.random() * 100).toFixed(2);
+          diceBox.innerText = randomVal;
+          counter++;
+        }, 50);
+
+        // توقف الحركة وإظهار النتيجة النهائية بعد 0.8 ثانية
+        setTimeout(() => {
+          clearInterval(rollInterval);
+          diceBox.classList.remove('animate-dice');
+
+          // نتيجة عشوائية حقيقية من 0.00 إلى 99.99
+          const finalResult = (Math.random() * 99.99).toFixed(2);
+          const targetLimit = parseFloat(slider.value);
+
+          diceBox.innerText = finalResult;
+
+          // تحديد الفوز أو الخسارة
+          if (parseFloat(finalResult) < targetLimit) {
+            // فوز (أخضر)
+            diceBox.style.backgroundColor = "#00e701";
+            diceBox.style.color = "#000000";
+            diceBox.style.boxShadow = "0 0 30px rgba(0,231,1,0.6)";
+          } else {
+            // خسارة (أحمر)
+            diceBox.style.backgroundColor = "#ff4d4d";
+            diceBox.style.color = "#ffffff";
+            diceBox.style.boxShadow = "0 0 30px rgba(255,77,77,0.6)";
+          }
+
+          isRolling = false;
+          betBtn.disabled = false;
+          betBtn.style.opacity = "1";
+        }, 800);
+      }
+
+      slider.addEventListener('input', (e) => syncGameValues(e.target.value));
+      betAmount.addEventListener('input', recalculateWin);
+
+      // Initialize
+      syncGameValues(slider.value);
+    </script>
+  </body>
+</html>

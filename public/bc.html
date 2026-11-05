@@ -1,0 +1,2813 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1"/>
+    <title>Crash &amp; Trenball - BC Game Clone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bcBg: '#1a1d20',
+                        bcCard: '#24272c',
+                        bcCardHover: '#2a2e33',
+                        bcInput: '#1d2024',
+                        bcGreen: '#26a17b',
+                        bcGreenHover: '#2bc495',
+                        bcBrightGreen: '#00e676',
+                        bcRed: '#ed4245',
+                        bcOrange: '#f5a623',
+                        bcTextGray: '#98a7b5',
+                    },
+                    fontFamily: {
+                        sans: ['IBM Plex Sans Arabic', 'Inter', 'sans-serif'],
+                        mono: ['Inter', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        html, body {
+            min-height: 100%;
+            height: 100%;
+            margin: 0;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #1a1d20;
+            color: #ffffff;
+            font-family: 'IBM Plex Sans Arabic', 'Inter', sans-serif;
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+            user-select: none;
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: env(safe-area-inset-bottom, 0);
+        }
+
+        .bg-card { background-color: #24272c; }
+        .bg-card-dark { background-color: #1d2024; }
+        .bg-input { background-color: #1d2024; }
+        .accent-green { color: #00e676; }
+        .btn-green {
+            background: linear-gradient(135deg, #00e676 0%, #10b981 100%);
+            color: #0d131c;
+            font-weight: 700;
+        }
+        .btn-green:hover {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .game-frame-crash {
+            border: 2px solid transparent;
+            border-radius: 20px;
+            background-image:
+                linear-gradient(#1a1d20, #1a1d20),
+                linear-gradient(180deg, #8e24aa 0%, #4a148c 100%);
+            background-origin: border-box;
+            background-clip: padding-box, border-box;
+            box-shadow:
+                0 22px 45px -24px rgba(142, 36, 170, 0.7),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+        }
+
+        .tren-tab-btn {
+            background-color: #1d2024;
+            border: 1px solid rgba(255,255,255,0.04);
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+        }
+        .tren-tab-btn:hover { background-color: #2a2e34; }
+        .tren-tab-btn.red-active { border-color: #ed4245; }
+        .tren-tab-btn.green-active { border-color: #00e676; }
+        .tren-tab-btn.moon-active { border-color: #f5a623; }
+        .tren-tab-btn.crash-active { border-color: #8a919b; }
+        .tren-tab-btn.selected { box-shadow: inset 0 0 0 2px rgba(255,255,255,0.7); }
+        .tren-tab-btn.busy { opacity: 0.6; cursor: not-allowed; }
+
+        canvas {
+            background: radial-gradient(circle at 10% 90%, rgba(0, 230, 118, 0.05) 0%, rgba(23, 25, 27, 0) 60%);
+        }
+
+        #history-bar { scrollbar-width: none; }
+        #history-bar::-webkit-scrollbar { display: none; }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { scrollbar-width: none; }
+
+        @media (max-width: 1024px) {
+            html, body {
+                min-height: 100%;
+            }
+
+            body {
+                min-height: 100vh;
+                min-height: 100dvh;
+            }
+
+            main {
+                overflow: visible;
+                min-height: 100%;
+                width: 100%;
+                max-width: 100%;
+                padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+            }
+
+            main > div {
+                min-width: 0;
+            }
+
+            #history-dropdown {
+                width: calc(100vw - 24px);
+                left: 12px;
+                right: 12px;
+                max-width: none;
+            }
+        }
+
+        @media (max-width: 767px) {
+            header {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+
+            main {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                padding: 8px 8px calc(12px + env(safe-area-inset-bottom, 0px));
+                flex: 0 0 auto;
+                min-height: auto;
+                overflow: visible;
+            }
+
+            main > div:first-child,
+            main > div:last-child {
+                width: 100%;
+                max-width: 100%;
+                flex: 0 0 auto;
+                min-width: 0;
+            }
+
+            main > div:first-child {
+                overflow: visible;
+            }
+
+            main > div:first-child > div:first-child {
+                flex: 0 0 auto;
+                height: clamp(260px, 44vh, 420px);
+                overflow: hidden;
+            }
+
+            .bg-card {
+                border-radius: 14px;
+            }
+
+            #game-canvas {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                min-height: 0;
+                max-height: none;
+                margin-top: 0;
+                transform: translateZ(0);
+            }
+
+            .tren-tab-btn {
+                padding: 0.55rem 0.35rem;
+                min-height: 64px;
+            }
+
+            .tren-tab-btn span {
+                line-height: 1.2;
+            }
+
+            .grid.grid-cols-2.md\:grid-cols-4.gap-2.mt-1 {
+                gap: 6px;
+            }
+
+            #history-dropdown {
+                top: 52px;
+            }
+        }
+    </style>
+</head>
+<body class="dark flex flex-col min-h-screen overflow-x-hidden">
+
+    <!-- الشريط العلوي (Header) -->
+    <header class="bg-bcCard border-b border-gray-800 px-2 sm:px-4 py-2 sm:py-2.5 sticky top-0 z-50 flex items-center justify-between gap-2">
+        <div class="flex items-center space-x-2 sm:space-x-3 space-x-reverse">
+            <button class="hidden sm:inline-flex text-bcTextGray hover:text-white p-2 rounded-lg hover:bg-bcBg transition">
+                <i class="fa-solid fa-bars text-lg"></i>
+            </button>
+            <a href="/" class="flex items-center space-x-2 space-x-reverse cursor-pointer">
+                <div class="w-8 h-8 bg-bcBrightGreen rounded-lg flex items-center justify-center font-bold text-black text-xl">
+                    <i class="fa-solid fa-ghost"></i>
+                </div>
+                <span class="font-extrabold text-xl tracking-wider text-white hidden sm:inline">BC.GAME</span>
+            </a>
+        </div>
+
+        <div class="flex items-center bg-bcInput rounded-xl p-1 border border-gray-800">
+            <div class="flex items-center px-2 sm:px-3 space-x-1.5 sm:space-x-2 space-x-reverse">
+                <i class="fa-solid fa-wallet text-bcBrightGreen text-base"></i>
+                <span class="hidden sm:inline text-xs text-bcTextGray">USD</span>
+                <span id="user-balance" class="font-mono font-bold text-white text-sm sm:text-base">0.00</span>
+            </div>
+            <button onclick="handleDeposit()" class="bg-bcGreen hover:bg-bcGreenHover text-white px-2.5 sm:px-4 py-1.5 rounded-lg font-bold text-xs flex items-center space-x-1 space-x-reverse transition shadow-md">
+                <i class="fa-solid fa-plus text-xs"></i>
+                <span>إيداع</span>
+            </button>
+        </div>
+
+        <div class="flex items-center space-x-1.5 sm:space-x-2 space-x-reverse">
+            <a href="/dice" title="Dice" class="w-9 h-9 rounded-xl bg-bcInput hover:bg-bcCardHover text-bcTextGray hover:text-white flex items-center justify-center transition">
+                <i class="fa-solid fa-dice"></i>
+            </a>
+            <button class="hidden sm:flex w-9 h-9 rounded-xl bg-bcInput hover:bg-bcCardHover text-bcTextGray hover:text-white items-center justify-center transition">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+            <button class="w-9 h-9 rounded-xl bg-bcInput hover:bg-bcCardHover text-bcTextGray hover:text-white flex items-center justify-center transition relative">
+                <i class="fa-regular fa-bell"></i>
+                <span class="w-2 h-2 bg-bcBrightGreen rounded-full absolute top-2 right-2"></span>
+            </button>
+            <div onclick="openAccount()" title="الحساب" class="flex items-center space-x-2 space-x-reverse bg-bcInput p-1 pr-1 sm:pr-2 rounded-xl cursor-pointer hover:bg-bcCardHover transition">
+                <img id="user-avatar" src="https://api.dicebear.com/7.x/bottts/svg?seed=CryptoGambler" alt="Avatar" class="w-7 h-7 rounded-lg bg-gray-700">
+                <i class="fa-solid fa-chevron-down hidden sm:inline text-xs text-bcTextGray pl-1"></i>
+            </div>
+        </div>
+    </header>
+
+    <!-- محتوى اللعبة الرئيسي -->
+    <div id="game-frame" class="game-frame-crash flex-1 flex flex-col m-2 sm:m-3 min-h-0 overflow-visible lg:overflow-hidden">
+    <main id="trenball-view" class="flex-1 flex flex-col lg:flex-row p-3 gap-3 overflow-visible lg:overflow-hidden">
+
+        <!-- القسم الأيسر: شاشة الرسم + لوحة الرهان السفلية -->
+        <div class="flex-1 flex flex-col gap-3 overflow-hidden">
+
+            <!-- شاشة الرسم المحاكية -->
+            <div class="flex-1 bg-card rounded-xl border border-gray-800 flex flex-col relative overflow-hidden">
+                <div class="bg-bcCard p-2 rounded-t-xl border-b border-gray-800/80 flex items-center overflow-hidden relative">
+                    <div class="text-bcTextGray px-2 text-xs font-semibold border-l border-gray-700 flex items-center space-x-1 space-x-reverse">
+                        <i class="fa-solid fa-history"></i>
+                        <span>السجل:</span>
+                    </div>
+                    <div class="flex items-center gap-2 ml-2">
+                        <button id="history-toggle" class="px-2.5 py-1 rounded-lg bg-bcInput border border-gray-700 text-[10px] font-bold text-bcTextGray hover:text-white hover:border-gray-600 transition">
+                            سجل
+                        </button>
+                    </div>
+                    <div id="history-bar" class="flex items-center space-x-2 space-x-reverse overflow-x-auto px-2 no-scrollbar w-full">
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-800 text-green-400">2.44x</span>
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-800 text-red-500">1.56x</span>
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-800 text-red-500">1.42x</span>
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-800 text-red-500">1.72x</span>
+                        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-gray-800 text-green-400">32.50x</span>
+                    </div>
+                </div>
+
+                <div id="history-dropdown" class="hidden absolute left-3 top-[52px] z-30 w-[320px] rounded-xl border border-gray-800 bg-bcCard shadow-2xl">
+                    <div class="flex items-center justify-between border-b border-gray-800 px-3 py-2">
+                        <span class="text-xs font-bold text-white">نتائج اللعبة</span>
+                        <button id="history-close" class="text-bcTextGray hover:text-white text-xs">إغلاق</button>
+                    </div>
+                    <div id="history-list" class="max-h-[300px] overflow-y-auto divide-y divide-gray-800/70"></div>
+                    <div class="flex items-center justify-between gap-2 border-t border-gray-800 px-3 py-2">
+                        <button id="history-prev" class="px-2 py-1 rounded bg-bcInput text-[10px] text-bcTextGray hover:text-white disabled:opacity-40 disabled:cursor-not-allowed" disabled>السابق</button>
+                        <div class="flex items-center gap-2">
+                            <label for="history-page-size" class="text-[9px] text-bcTextGray">عرض</label>
+                            <select id="history-page-size" class="rounded bg-bcInput border border-gray-700 px-1.5 py-1 text-[9px] text-white outline-none">
+                                <option value="15">15</option>
+                                <option value="30">30</option>
+                                <option value="50">50</option>
+                            </select>
+                        </div>
+                        <span id="history-page" class="text-[10px] text-bcTextGray">1 / 1</span>
+                        <button id="history-next" class="px-2 py-1 rounded bg-bcInput text-[10px] text-bcTextGray hover:text-white disabled:opacity-40 disabled:cursor-not-allowed" disabled>التالي</button>
+                    </div>
+                </div>
+
+                <div id="fair-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+                    <div class="w-full max-w-lg rounded-2xl border border-gray-800 bg-bcCard shadow-2xl">
+                        <div class="flex items-center justify-between border-b border-gray-800 px-4 py-3">
+                            <div>
+                                <div class="text-xs text-bcTextGray">Provably Fair</div>
+                                <div id="fair-round-title" class="text-sm font-bold text-white">الجولة الحالية</div>
+                            </div>
+                            <button id="fair-close" class="text-bcTextGray hover:text-white text-lg">×</button>
+                        </div>
+
+                        <div class="p-4 space-y-3 text-[11px]">
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="rounded-lg bg-bcInput p-2 border border-gray-800">
+                                    <div class="text-bcTextGray">Round ID</div>
+                                    <div id="fair-round-id" class="mt-1 break-all font-mono text-white">—</div>
+                                </div>
+                                <div class="rounded-lg bg-bcInput p-2 border border-gray-800">
+                                    <div class="text-bcTextGray">النتيجة</div>
+                                    <div id="fair-round-result" class="mt-1 font-mono text-bcOrange">—</div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="rounded-lg bg-bcInput p-2 border border-gray-800">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="text-bcTextGray">Client Seed</div>
+                                        <button id="fair-copy-client-seed" class="rounded bg-gray-800 px-2 py-1 text-[10px] font-bold text-bcTextGray hover:text-white">نسخ</button>
+                                    </div>
+                                    <div id="fair-client-seed" class="mt-1 break-all font-mono text-white">—</div>
+                                </div>
+                                <div class="rounded-lg bg-bcInput p-2 border border-gray-800">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <div class="text-bcTextGray">Nonce</div>
+                                        <button id="fair-copy-nonce" class="rounded bg-gray-800 px-2 py-1 text-[10px] font-bold text-bcTextGray hover:text-white">نسخ</button>
+                                    </div>
+                                    <div id="fair-nonce" class="mt-1 font-mono text-white">—</div>
+                                </div>
+                            </div>
+
+                            <div class="rounded-lg bg-bcInput p-2 border border-gray-800">
+                                <div class="text-bcTextGray">Server Seed Hash</div>
+                                <div id="fair-server-hash" class="mt-1 break-all font-mono text-white">—</div>
+                            </div>
+
+                            <div class="rounded-lg bg-bcInput p-2 border border-gray-800">
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="text-bcTextGray">Salt / Message</div>
+                                    <button id="fair-copy-salt" class="rounded bg-gray-800 px-2 py-1 text-[10px] font-bold text-bcTextGray hover:text-white">نسخ</button>
+                                </div>
+                                <div id="fair-salt" class="mt-1 break-all font-mono text-white">—</div>
+                            </div>
+
+                            <div class="rounded-lg bg-bcInput p-2 border border-gray-800">
+                                <div class="text-bcTextGray">Server Seed (الحقيقي فقط — لا تضع hash)</div>
+                                <input id="fair-server-seed" type="text" placeholder="أدخل server seed الحقيقي" class="mt-2 w-full rounded-lg border border-gray-700 bg-bcBg px-3 py-2 text-white font-mono text-[10px] outline-none focus:border-bcBrightGreen">
+                            </div>
+
+                            <div class="rounded-lg bg-bcInput p-2 border border-gray-800">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-bcTextGray">نسبة النتيجة</span>
+                                    <button id="fair-verify-btn" class="rounded bg-bcGreen hover:bg-bcGreenHover px-2 py-1 text-[10px] font-bold text-white">تحقق</button>
+                                </div>
+                                <div id="fair-result" class="mt-2 rounded bg-bcBg border border-gray-800 p-2 font-mono text-xs text-bcTextGray">
+                                    انتظر التحقق...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex-1 relative flex items-center justify-center">
+                    <div class="absolute z-10 text-center">
+                        <div id="multiplier-text" class="text-6xl md:text-7xl font-extrabold text-yellow-400 tracking-tight">1.00x</div>
+                    </div>
+                    <canvas id="game-canvas" class="w-full h-full absolute inset-0"></canvas>
+                </div>
+            </div>
+
+            <!-- لوحة التحكم بالرهان السفلية (المطابقة لـ BC.Game Trenball) -->
+            <div class="bg-card p-4 rounded-xl border border-gray-800 flex flex-col gap-3">
+                <!-- أزرار اختيار (يدوي / آلي) -->
+                <div class="flex border-b border-gray-800 pb-2 text-xs font-bold">
+                    <button class="text-white border-b-2 border-green-400 pb-1 px-4">يدوي</button>
+                    <button class="text-gray-400 hover:text-white pb-1 px-4">آلي</button>
+                </div>
+
+                <!-- إدخال قيمة الرهان وتحديد الأرقام السريعة -->
+                <div class="flex flex-col md:flex-row gap-3 items-center">
+                    <div class="flex-1 w-full flex bg-input border border-gray-700 rounded-lg overflow-hidden items-center px-3">
+                        <span class="text-xs text-gray-400">المبلغ</span>
+                        <input type="number" id="bet-amount" value="10.00" class="bg-transparent w-full px-3 py-2 text-white font-bold outline-none text-left">
+                        <button onclick="adjustBet(0.5)" class="px-2 py-1 text-xs font-bold bg-gray-800 rounded mx-1 text-gray-300">1/2</button>
+                        <button onclick="adjustBet(2)" class="px-2 py-1 text-xs font-bold bg-gray-800 rounded text-gray-300">2x</button>
+                    </div>
+
+                    <div class="flex gap-2 w-full md:w-auto">
+                        <button onclick="setBetAmount(1)" class="px-3 py-2 bg-input border border-gray-700 rounded-lg text-xs font-bold text-gray-300 hover:bg-gray-800">1</button>
+                        <button onclick="setBetAmount(10)" class="px-3 py-2 bg-input border border-gray-700 rounded-lg text-xs font-bold text-gray-300 hover:bg-gray-800">10</button>
+                        <button onclick="setBetAmount(100)" class="px-3 py-2 bg-input border border-gray-700 rounded-lg text-xs font-bold text-gray-300 hover:bg-gray-800">100</button>
+                        <button onclick="setBetAmount(1000)" class="px-3 py-2 bg-input border border-gray-700 rounded-lg text-xs font-bold text-gray-300 hover:bg-gray-800">1.0k</button>
+                    </div>
+                </div>
+
+                <!-- الأزرار الأربعة للرهان المستهدف (Trenball Layout) -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1">
+                    <button id="bet-crash" onclick="placeBet('crash')" class="tren-tab-btn crash-active p-3 rounded-lg text-center flex flex-col items-center justify-center">
+                        <span id="crash-btn-title" class="text-xs text-gray-300 font-bold">Crash رهان</span>
+                        <span id="crash-btn-sub" class="text-[10px] text-gray-500">الجولة القادمة</span>
+                    </button>
+
+                    <button id="bet-red" onclick="placeBet('red')" class="tren-tab-btn red-active p-3 rounded-lg text-center flex flex-col items-center justify-center">
+                        <span class="text-xs text-red-400 font-bold">الرهان الأحمر</span>
+                        <span class="text-[10px] text-gray-400">Crash &lt; 2x | 1.96x</span>
+                    </button>
+
+                    <button id="bet-green" onclick="placeBet('green')" class="tren-tab-btn green-active p-3 rounded-lg text-center flex flex-col items-center justify-center">
+                        <span class="text-xs text-green-400 font-bold">الرهان الأخضر</span>
+                        <span class="text-[10px] text-gray-400">Crash ≥ 2x | 2.00x</span>
+                    </button>
+
+                    <button id="bet-moon" onclick="placeBet('moon')" class="tren-tab-btn moon-active p-3 rounded-lg text-center flex flex-col items-center justify-center">
+                        <span class="text-xs text-yellow-400 font-bold">الرهان القمر</span>
+                        <span class="text-[10px] text-gray-400">Crash ≥ 10x | 10.00x</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- القائمة الجانبية الحية (المطابقة للوحة Trenball الأيمن) -->
+        <div class="w-full lg:w-80 bg-card p-3 rounded-xl border border-gray-800 flex flex-col gap-3">
+
+            <!-- زر التبديل الرئيسي (كلاسيك / Trenball) -->
+            <div class="flex bg-input p-1 rounded-lg border border-gray-800 text-xs font-bold">
+                <button onclick="switchView('classic')" class="flex-1 py-1.5 text-gray-400 hover:text-white">كلاسيك</button>
+                <button class="flex-1 py-1.5 bg-card text-white shadow rounded">Trenball</button>
+            </div>
+
+            <!-- قسم الشخصيات والإحصائيات الحية (الدب والثور) -->
+            <div class="bg-card-dark p-3 rounded-xl flex flex-col gap-3 border border-gray-800">
+                <div class="flex justify-between items-center px-4">
+                    <!-- شخصية الدب / الأحمر -->
+                    <div class="w-16 h-16 bg-red-900/30 rounded-full flex items-center justify-center border border-red-500/30 text-2xl">
+                        🐻
+                    </div>
+                    <!-- شخصية الثور / الأخضر -->
+                    <div class="w-16 h-16 bg-green-900/30 rounded-full flex items-center justify-center border border-green-500/30 text-2xl">
+                        🐂
+                    </div>
+                </div>
+
+                <!-- شريط المقارنة والتوزيع الحقيقي للمبالغ -->
+                <div class="flex justify-between text-xs font-bold text-gray-300">
+                    <span class="text-red-400">👤 <span id="bear-count">0</span> | <span id="bear-amount">0.00</span> US$</span>
+                    <span class="text-green-400">👤 <span id="bull-count">0</span> | <span id="bull-amount">0.00</span> US$</span>
+                </div>
+                <div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden flex">
+                    <div id="bear-bar" class="bg-red-500 h-full" style="width: 50%"></div>
+                    <div id="bull-bar" class="bg-green-500 h-full" style="width: 50%"></div>
+                </div>
+            </div>
+
+            <!-- جدول رهانات اللاعبين الحية -->
+            <div class="flex-1 overflow-y-auto flex flex-col gap-1 text-xs">
+                <div class="flex justify-between text-gray-500 px-2 py-1 border-b border-gray-800">
+                    <span>لاعب</span>
+                    <span>رهان</span>
+                    <span>لاعب</span>
+                    <span>رهان</span>
+                </div>
+
+                <!-- صفوف الرهانات الحية تُحقن عبر JS -->
+                <div id="live-bets" class="flex flex-col gap-1"></div>
+            </div>
+
+            <!-- سجل رهانات المستخدم السابقة -->
+            <div class="bg-card-dark p-3 rounded-xl border border-gray-800">
+                <div class="mb-2 flex items-center justify-between">
+                    <span class="text-[10px] uppercase tracking-wider text-gray-500">سجل رهاناتك</span>
+                    <span id="user-bets-count" class="rounded-full bg-gray-800 px-2 py-0.5 text-[10px] text-gray-400">0</span>
+                </div>
+                <div class="max-h-[220px] overflow-y-auto">
+                    <table class="w-full text-left text-[10px]">
+                        <thead class="sticky top-0 bg-card-dark text-[9px] uppercase tracking-wider text-gray-500">
+                            <tr>
+                                <th class="px-2 py-1 font-medium">الجولة</th>
+                                <th class="px-2 py-1 font-medium">المبلغ</th>
+                                <th class="px-2 py-1 font-medium">المضاعف</th>
+                                <th class="px-2 py-1 text-right font-medium">العائد</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-bets-body"></tbody>
+                    </table>
+                    <div id="user-bets-empty" class="px-2 py-8 text-center text-[10px] text-gray-500">
+                        لا توجد رهانات سابقة حتى الآن.
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center justify-between">
+                    <button id="user-bets-prev" class="px-2 py-1 rounded bg-gray-800 text-[10px] text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed" disabled>السابق</button>
+                    <span id="user-bets-page" class="text-[10px] text-gray-500">1 / 1</span>
+                    <button id="user-bets-next" class="px-2 py-1 rounded bg-gray-800 text-[10px] text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed" disabled>التالي</button>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Classic View (same page, toggled from the sidebar) -->
+    <div id="classic-view" role="main" class="hidden flex-1 max-w-[1600px] w-full mx-auto p-2 sm:p-4 grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+        <!-- Left Column: Crash Game Canvas & Controls (8 Cols on LG) -->
+        <div class="lg:col-span-8 flex flex-col space-y-3">
+
+            <!-- Multipliers History Ribbon -->
+            <div class="bg-bcCard p-2 rounded-xl border border-gray-800/80 flex items-center overflow-hidden">
+                <div class="text-bcTextGray px-2 text-xs font-semibold border-l border-gray-700 flex items-center space-x-1 space-x-reverse">
+                    <i class="fa-solid fa-history"></i>
+                    <span>السجل:</span>
+                </div>
+                <div id="history-container" class="flex items-center space-x-2 space-x-reverse overflow-x-auto px-2 no-scrollbar w-full">
+                    <!-- History Chips Injected via JS -->
+                </div>
+            </div>
+
+            <!-- Crash Canvas Stage Panel -->
+            <div class="relative bg-bcCard rounded-2xl border border-gray-800 overflow-hidden h-[340px] sm:h-[420px] flex flex-col justify-between p-4">
+
+                <!-- Background Mesh Overlay -->
+                <div class="absolute inset-0 bg-[radial-gradient(#2d323b_1px,transparent_1px)] [background-size:16px_16px] opacity-30 pointer-events-none"></div>
+
+                <!-- Live Status Header inside Graph -->
+                <div class="relative z-10 flex justify-between items-center text-xs text-bcTextGray">
+                    <div class="flex items-center space-x-2 space-x-reverse bg-bcInput/80 backdrop-blur px-3 py-1.5 rounded-lg border border-gray-800">
+                        <span class="w-2 h-2 rounded-full bg-bcBrightGreen animate-ping"></span>
+                        <span class="text-white font-medium">حالة الشبكة: ممتازة</span>
+                    </div>
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <button id="sound-btn" onclick="toggleSound()" class="hover:text-white transition">
+                            <i class="fa-solid fa-volume-high text-base"></i>
+                        </button>
+                        <button class="hover:text-white transition">
+                            <i class="fa-solid fa-circle-info text-base"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Center Multiplier Display -->
+                <div class="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
+                    <div id="multiplier-display" class="font-mono text-5xl sm:text-7xl font-black text-bcOrange tracking-tight drop-shadow-md">
+                        1.00x
+                    </div>
+                    <div id="game-state-text" class="text-bcTextGray font-semibold mt-2 text-sm sm:text-base">
+                        بانتظار الجولة القادمة...
+                    </div>
+                </div>
+
+                <!-- Interactive Crash Curve Canvas -->
+                <canvas id="crashCanvas" class="absolute inset-0 w-full h-full z-0"></canvas>
+
+                <!-- Footer Stats inside Canvas -->
+                <div class="relative z-10 flex justify-between items-end text-xs text-bcTextGray pointer-events-none">
+                    <div class="font-mono">PROVABLY FAIR</div>
+                    <div id="hash-preview" class="font-mono text-[10px] text-gray-500 truncate max-w-[200px]">
+                        Hash: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+                    </div>
+                </div>
+            </div>
+
+            <!-- Betting Controls Panel -->
+            <div class="bg-bcCard rounded-2xl border border-gray-800 p-4 shadow-xl">
+                <!-- Mode Tabs (Manual / Auto) -->
+                <div class="flex bg-bcInput p-1 rounded-xl w-fit mb-4 border border-gray-800">
+                    <button id="tab-manual" onclick="switchTab('manual')" class="px-6 py-2 rounded-lg text-xs font-bold transition bg-bcCard text-white shadow">يدوي</button>
+                    <button id="tab-auto" onclick="switchTab('auto')" class="px-6 py-2 rounded-lg text-xs font-bold transition text-bcTextGray hover:text-white">آلي</button>
+                </div>
+
+                <!-- Betting Input Controls Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+
+                    <!-- Bet Amount Box -->
+                    <div class="md:col-span-5 space-y-1.5">
+                        <div class="flex justify-between text-xs text-bcTextGray">
+                            <span>مبلغ الرهان</span>
+                            <span id="bet-usd-value" class="text-gray-400">≈ $10.00</span>
+                        </div>
+                        <div class="flex bg-bcInput border border-gray-700/80 rounded-xl overflow-hidden focus-within:border-bcBrightGreen transition">
+                            <div class="flex items-center pl-3 pr-2 bg-bcInput text-bcBrightGreen font-bold">
+                                <i class="fa-solid fa-coins text-sm"></i>
+                            </div>
+                            <input id="classic-bet-amount" type="number" value="10" min="1" step="1" class="w-full bg-transparent py-2.5 px-2 text-white font-mono font-bold focus:outline-none text-base" oninput="updateBetUSD()">
+                            <div class="flex items-center p-1 bg-bcCard border-r border-gray-800 space-x-1 space-x-reverse">
+                                <button onclick="adjustBet(0.5)" class="px-2.5 py-1 bg-bcInput hover:bg-bcCardHover text-xs font-bold rounded text-bcTextGray hover:text-white transition">½</button>
+                                <button onclick="adjustBet(2)" class="px-2.5 py-1 bg-bcInput hover:bg-bcCardHover text-xs font-bold rounded text-bcTextGray hover:text-white transition">2×</button>
+                            </div>
+                        </div>
+                        <!-- Quick Presets -->
+                        <div class="grid grid-cols-4 gap-1.5 pt-1">
+                            <button onclick="setBet(10)" class="py-1 bg-bcInput hover:bg-bcCardHover text-[11px] font-bold rounded-lg text-bcTextGray hover:text-white transition">10.0</button>
+                            <button onclick="setBet(100)" class="py-1 bg-bcInput hover:bg-bcCardHover text-[11px] font-bold rounded-lg text-bcTextGray hover:text-white transition">100.0</button>
+                            <button onclick="setBet(500)" class="py-1 bg-bcInput hover:bg-bcCardHover text-[11px] font-bold rounded-lg text-bcTextGray hover:text-white transition">500.0</button>
+                            <button onclick="setBet(1000)" class="py-1 bg-bcInput hover:bg-bcCardHover text-[11px] font-bold rounded-lg text-bcTextGray hover:text-white transition">1.0K</button>
+                        </div>
+                    </div>
+
+                    <!-- Auto Cashout Target Box -->
+                    <div class="md:col-span-3 space-y-1.5">
+                        <div class="flex justify-between text-xs text-bcTextGray">
+                            <span>صرف النقود تلقائياً</span>
+                            <span class="text-gray-400">مضاعف</span>
+                        </div>
+                        <div class="flex bg-bcInput border border-gray-700/80 rounded-xl overflow-hidden focus-within:border-bcBrightGreen transition">
+                            <input id="auto-cashout" type="number" value="2.00" min="1.01" step="0.1" class="w-full bg-transparent py-2.5 px-3 text-white font-mono font-bold focus:outline-none text-base">
+                            <div class="flex items-center px-3 bg-bcCard text-bcTextGray font-bold text-xs border-r border-gray-800">
+                                X
+                            </div>
+                        </div>
+                        <div class="text-[11px] text-bcTextGray flex justify-between pt-1">
+                            <span>نسبة الربح: <strong id="profit-margin" class="text-bcBrightGreen">98.0%</strong></span>
+                        </div>
+                    </div>
+
+                    <!-- Action Button (Place Bet / Cashout) -->
+                    <div class="md:col-span-4 flex flex-col justify-end">
+                        <button id="action-btn" onclick="handleMainAction()" class="gradient-btn w-full py-4 rounded-2xl text-black font-extrabold text-lg shadow-lg hover:brightness-110 active:scale-95 transition-all duration-200 flex flex-col items-center justify-center space-y-0.5">
+                            <span id="action-btn-title">رهان (الجولة القادمة)</span>
+                            <span id="action-btn-sub" class="text-xs opacity-80 font-mono font-normal">جاهز للعب</span>
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Live Players & Bets Table (4 Cols on LG) -->
+        <div class="lg:col-span-4 bg-bcCard rounded-2xl border border-gray-800 p-4 flex flex-col h-[580px] lg:h-auto">
+
+            <!-- Table Header Tabs -->
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3 mb-3">
+                <div class="flex items-center space-x-2 space-x-reverse">
+                    <button class="px-3 py-1.5 bg-bcInput text-white text-xs font-bold rounded-lg border border-gray-700">كلاسيك</button>
+                    <button onclick="switchView('trenball')" class="px-3 py-1.5 text-bcTextGray hover:text-white text-xs font-bold rounded-lg transition">Trenball</button>
+                </div>
+                <div class="flex items-center space-x-2 space-x-reverse text-xs text-bcTextGray">
+                    <span class="w-2 h-2 rounded-full bg-bcBrightGreen"></span>
+                    <span>اللاعبين: <strong id="active-players-count" class="text-white font-mono">142</strong></span>
+                </div>
+            </div>
+
+            <!-- Total Pool Header -->
+            <div class="flex justify-between items-center text-xs text-bcTextGray bg-bcInput p-2.5 rounded-xl border border-gray-800/60 mb-3">
+                <span>إجمالي الرهانات الحالية:</span>
+                <span id="total-pool-amount" class="font-mono font-bold text-bcBrightGreen text-sm">$12,840.50</span>
+            </div>
+
+            <!-- Live Bets List Table -->
+            <div class="flex-1 overflow-y-auto pr-1 space-y-1.5 text-xs font-mono" id="bets-table-body">
+                <!-- Live Bets Rows Injected via JS -->
+            </div>
+
+            <!-- سجل رهانات المستخدم السابقة -->
+            <div class="mt-4 border border-gray-800 bg-bcInput/30 rounded-xl p-3">
+                <div class="mb-2 flex items-center justify-between">
+                    <span class="text-[10px] uppercase tracking-wider text-bcTextGray">سجل رهاناتك</span>
+                    <span id="cl-user-bets-count" class="rounded-full bg-bcCard px-2 py-0.5 text-[10px] text-bcTextGray">0</span>
+                </div>
+                <div class="max-h-[220px] overflow-y-auto">
+                    <table class="w-full text-left text-[10px]">
+                        <thead class="sticky top-0 bg-bcInput/90 text-[9px] uppercase tracking-wider text-bcTextGray">
+                            <tr>
+                                <th class="px-2 py-1 font-medium">الجولة</th>
+                                <th class="px-2 py-1 font-medium">المبلغ</th>
+                                <th class="px-2 py-1 font-medium">المضاعف</th>
+                                <th class="px-2 py-1 text-right font-medium">العائد</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cl-user-bets-body"></tbody>
+                    </table>
+                    <div id="cl-user-bets-empty" class="px-2 py-8 text-center text-[10px] text-bcTextGray">
+                        لا توجد رهانات سابقة حتى الآن.
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center justify-between">
+                    <button id="cl-user-bets-prev" onclick="goToPrevUserBetPage()" class="px-2 py-1 rounded bg-bcCard text-[10px] text-white disabled:opacity-40 disabled:cursor-not-allowed" disabled>السابق</button>
+                    <span id="cl-user-bets-page" class="text-[10px] text-bcTextGray">1 / 1</span>
+                    <button id="cl-user-bets-next" onclick="goToNextUserBetPage()" class="px-2 py-1 rounded bg-bcCard text-[10px] text-white disabled:opacity-40 disabled:cursor-not-allowed" disabled>التالي</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+
+    <div id="bet-detail-modal" class="hidden fixed inset-0 z-[65] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+        <div class="w-full max-w-lg rounded-2xl border border-gray-800 bg-card shadow-2xl">
+            <div class="flex items-center justify-between border-b border-gray-800 px-4 py-3">
+                <div class="text-sm font-bold text-white" id="bet-detail-title">تفاصيل الجولة</div>
+                <button id="bet-detail-close" class="text-xl text-gray-400 hover:text-white">×</button>
+            </div>
+            <div class="space-y-4 p-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="rounded-xl bg-gray-900/70 p-3 border border-gray-800">
+                        <div class="text-[10px] text-gray-500">الحالة</div>
+                        <div id="bet-detail-status" class="mt-1 text-sm font-bold text-green-400">فائز</div>
+                    </div>
+                    <div class="rounded-xl bg-gray-900/70 p-3 border border-gray-800">
+                        <div class="text-[10px] text-gray-500">النتيجة</div>
+                        <div id="bet-detail-result" class="mt-1 text-sm font-bold text-yellow-300">—</div>
+                    </div>
+                </div>
+
+                <div class="rounded-xl bg-gray-900/70 p-3 border border-gray-800">
+                    <div class="text-[10px] text-gray-500 mb-2">تفاصيل الرهان</div>
+                    <div class="space-y-2 text-[11px] text-gray-300">
+                        <div class="flex items-center justify-between"><span>المبلغ</span><span id="bet-detail-amount" class="font-mono text-white">$0.00</span></div>
+                        <div class="flex items-center justify-between"><span>العائد</span><span id="bet-detail-payout" class="font-mono text-green-400">$0.00</span></div>
+                        <div class="flex items-center justify-between"><span>المضاعف</span><span id="bet-detail-multiplier" class="font-mono text-yellow-300">—</span></div>
+                        <div class="flex items-center justify-between"><span>تاريخ الجولة</span><span id="bet-detail-created" class="font-mono text-gray-400">—</span></div>
+                    </div>
+                </div>
+
+                <div class="rounded-xl bg-gray-900/70 p-3 border border-gray-800">
+                    <div class="mb-2 flex items-center justify-between gap-2">
+                        <div class="text-[10px] text-gray-500">معلومات الجهة العادلة</div>
+                        <div class="text-[9px] text-gray-400">للتحقق: انسخ فقط القيم المطلوبة</div>
+                    </div>
+                    <div class="space-y-2 text-[11px] text-gray-300">
+                        <div class="flex items-center justify-between gap-2"><span>Round ID</span><span id="bet-detail-round-id" class="truncate font-mono text-gray-400">—</span></div>
+                        <div class="flex items-center justify-between gap-2"><span>النتيجة الفعلية</span><span id="bet-detail-round-result" class="font-mono text-yellow-300">—</span></div>
+                        <div class="flex flex-col gap-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-gray-500">Server Seed Hash</span>
+                            </div>
+                            <span id="bet-detail-hash" class="break-all font-mono text-gray-200">—</span>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-gray-500">Server Seed (الحقيقي)</span>
+                                <button id="bet-detail-copy-server-seed" class="rounded bg-gray-800 px-2 py-1 text-[10px] font-bold text-gray-300 hover:text-white">نسخ</button>
+                            </div>
+                            <span id="bet-detail-server-seed" class="break-all font-mono text-gray-200">—</span>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-gray-500">Client Seed</span>
+                                <button id="bet-detail-copy-client-seed" class="rounded bg-gray-800 px-2 py-1 text-[10px] font-bold text-gray-300 hover:text-white">نسخ</button>
+                            </div>
+                            <span id="bet-detail-client-seed" class="break-all font-mono text-gray-200">—</span>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-gray-500">Nonce</span>
+                                <button id="bet-detail-copy-nonce" class="rounded bg-gray-800 px-2 py-1 text-[10px] font-bold text-gray-300 hover:text-white">نسخ</button>
+                            </div>
+                            <span id="bet-detail-nonce" class="font-mono text-gray-200">—</span>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-gray-500">Salt / Message</span>
+                                <button id="bet-detail-copy-salt" class="rounded bg-gray-800 px-2 py-1 text-[10px] font-bold text-gray-300 hover:text-white">نسخ</button>
+                            </div>
+                            <span id="bet-detail-salt" class="break-all font-mono text-gray-200">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    </div>
+
+    <!-- Account / Auth Modal (hidden until needed) -->
+    <div id="account-modal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div class="w-full max-w-md bg-card border border-gray-800 rounded-2xl shadow-2xl p-5 relative">
+            <button onclick="closeAccount()" class="absolute top-3 left-3 w-8 h-8 rounded-lg bg-input hover:bg-gray-800 text-gray-400 hover:text-white flex items-center justify-center transition text-lg">×</button>
+
+            <div class="flex items-center gap-2 mb-4">
+                <span class="text-xl font-black tracking-wider text-white">BC.<span class="accent-green">GAME</span></span>
+                <span class="text-[11px] text-gray-500">حسابك في Crash</span>
+            </div>
+
+            <div id="account-guest">
+                <div class="flex bg-input p-1 rounded-xl w-full mb-4 border border-gray-800">
+                    <button id="auth-tab-login" onclick="switchAuthTab('login')" class="flex-1 px-4 py-2 rounded-lg text-xs font-bold transition bg-card text-white shadow">تسجيل الدخول</button>
+                    <button id="auth-tab-register" onclick="switchAuthTab('register')" class="flex-1 px-4 py-2 rounded-lg text-xs font-bold transition text-gray-400 hover:text-white">إنشاء حساب</button>
+                </div>
+
+                <form id="form-login" onsubmit="submitAuth(event, 'login')" class="flex flex-col gap-3">
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">البريد الإلكتروني</label>
+                        <input id="login-email" type="email" required autocomplete="email" class="w-full bg-input border border-gray-700/80 rounded-xl py-2.5 px-3 text-white font-mono focus:outline-none focus:border-green-400 transition" placeholder="you@example.com">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">كلمة المرور</label>
+                        <input id="login-password" type="password" required autocomplete="current-password" class="w-full bg-input border border-gray-700/80 rounded-xl py-2.5 px-3 text-white font-mono focus:outline-none focus:border-green-400 transition" placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="btn-green w-full py-3 rounded-xl text-sm mt-1">دخول</button>
+                </form>
+
+                <form id="form-register" onsubmit="submitAuth(event, 'register')" class="flex flex-col gap-3 hidden">
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">اسم المستخدم</label>
+                        <input id="reg-username" type="text" required autocomplete="username" class="w-full bg-input border border-gray-700/80 rounded-xl py-2.5 px-3 text-white font-mono focus:outline-none focus:border-green-400 transition" placeholder="username">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">البريد الإلكتروني</label>
+                        <input id="reg-email" type="email" required autocomplete="email" class="w-full bg-input border border-gray-700/80 rounded-xl py-2.5 px-3 text-white font-mono focus:outline-none focus:border-green-400 transition" placeholder="you@example.com">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 mb-1 block">كلمة المرور</label>
+                        <input id="reg-password" type="password" required autocomplete="new-password" class="w-full bg-input border border-gray-700/80 rounded-xl py-2.5 px-3 text-white font-mono focus:outline-none focus:border-green-400 transition" placeholder="6 أحرف على الأقل">
+                    </div>
+                    <button type="submit" class="btn-green w-full py-3 rounded-xl text-sm mt-1">إنشاء الحساب</button>
+                </form>
+
+                <div id="auth-error" class="text-red-500 text-xs mt-3 min-h-[16px]"></div>
+            </div>
+
+            <div id="account-user" class="hidden">
+                <div class="bg-input rounded-xl border border-gray-800 p-4 mb-4">
+                    <div class="text-xs text-gray-400">مسجّل الدخول باسم</div>
+                    <div id="account-username" class="font-bold text-white text-lg"></div>
+                    <div class="text-xs text-gray-400 mt-2">الرصيد</div>
+                    <div id="account-balance" class="font-mono font-bold text-green-400 text-2xl"></div>
+                </div>
+                <button onclick="logout()" class="w-full py-3 rounded-xl bg-red-500/90 hover:bg-red-500 text-white font-extrabold text-sm transition">تسجيل الخروج</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Notification Banner (hidden until needed) -->
+    <div id="toast" class="fixed bottom-5 left-5 bg-card border-r-4 border-green-400 text-white px-4 py-3 rounded-xl shadow-2xl z-50 transform translate-y-20 opacity-0 transition-all duration-300 flex items-center gap-3">
+        <div id="toast-icon" class="w-2.5 h-2.5 rounded-full bg-green-400 shrink-0"></div>
+        <div>
+            <div id="toast-title" class="font-bold text-xs">تم وضع الرهان</div>
+            <div id="toast-message" class="text-gray-400 text-[11px]">سيتم إشراك رهانك في الجولة القادمة تلقائياً.</div>
+        </div>
+    </div>
+
+    <!-- Game Engine Script -->
+    <script>
+        /* ------------------------------- app state ------------------------------- */
+        const state = {
+            config: null,
+            sb: null,
+            session: null,
+            user: null,
+            socket: null,
+            balance: 0,
+            phase: 'idle',
+            multiplier: 1,
+            round: null,
+            history: [],
+            selectedFairRound: null,
+            bets: [],
+            myBet: null,
+            pendingBet: null,
+            cashedOut: false,
+            autoCashedOut: false,
+            view: 'trenball',
+            waitingEndsAt: 0,
+            runningStart: 0,
+            crashPoint: null,
+            frozenElapsed: 0,
+            growthRate: 0.12,
+            waitingMs: 6000,
+            crashedMs: 2500,
+            houseEdgePercent: 1,
+            busy: false,
+            userBets: [],
+            currentPage: 1,
+            betsPerPage: 10,
+            historyPage: 1,
+            historyPerPage: 15,
+        };
+
+        const $ = (id) => document.getElementById(id);
+        let activeTab = 'manual';
+        let soundEnabled = true;
+        let audioCtx = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const prevButton = $('user-bets-prev');
+            const nextButton = $('user-bets-next');
+            const historyToggle = $('history-toggle');
+            const historyVerify = $('history-verify');
+            const historyClose = $('history-close');
+            const historyPrev = $('history-prev');
+            const historyNext = $('history-next');
+            const historyPageSize = $('history-page-size');
+            const fairClose = $('fair-close');
+            const fairVerifyBtn = $('fair-verify-btn');
+            const fairServerSeed = $('fair-server-seed');
+            const fairCopyClientSeed = $('fair-copy-client-seed');
+            const fairCopyNonce = $('fair-copy-nonce');
+            const fairCopySalt = $('fair-copy-salt');
+            const betDetailClose = $('bet-detail-close');
+
+            if (prevButton) prevButton.addEventListener('click', goToPrevUserBetPage);
+            if (nextButton) nextButton.addEventListener('click', goToNextUserBetPage);
+            if (historyToggle) historyToggle.addEventListener('click', toggleHistoryDropdown);
+            if (historyVerify) historyVerify.addEventListener('click', () => openFairModal(state.selectedFairRound || state.round || (state.history || [])[0] || null));
+            if (historyClose) historyClose.addEventListener('click', () => $('history-dropdown')?.classList.add('hidden'));
+            if (historyPrev) historyPrev.addEventListener('click', () => changeHistoryPage(-1));
+            if (historyNext) historyNext.addEventListener('click', () => changeHistoryPage(1));
+            if (historyPageSize) historyPageSize.addEventListener('change', (event) => setHistoryPageSize(Number(event.target.value)));
+            if (fairClose) fairClose.addEventListener('click', () => $('fair-modal')?.classList.add('hidden'));
+            if (fairVerifyBtn) fairVerifyBtn.addEventListener('click', verifyProvablyFair);
+            if (fairServerSeed) fairServerSeed.addEventListener('input', verifyProvablyFair);
+            if (fairCopyClientSeed) fairCopyClientSeed.addEventListener('click', () => copyToClipboard($('fair-client-seed')?.innerText || '', 'تم نسخ Client Seed للتحقق.'));
+            if (fairCopyNonce) fairCopyNonce.addEventListener('click', () => copyToClipboard($('fair-nonce')?.innerText || '', 'تم نسخ Nonce للتحقق.'));
+            if (fairCopySalt) fairCopySalt.addEventListener('click', () => copyToClipboard($('fair-salt')?.innerText || '', 'تم نسخ Salt / Message للتحقق.'));
+            if (betDetailClose) betDetailClose.addEventListener('click', closeBetDetailModal);
+
+            renderUserBets();
+            renderHistoryList();
+            populateFairModal();
+        });
+
+        const BET_LABELS = { crash: 'Crash', red: 'أحمر', green: 'أخضر', moon: 'قمر' };
+        const BET_COLORS = {
+            crash: 'text-gray-300',
+            red: 'text-red-400',
+            green: 'text-green-400',
+            moon: 'text-yellow-400',
+        };
+
+        function betTypeLabel(type) {
+            return BET_LABELS[type] || 'Crash';
+        }
+
+        function betTypeColor(type) {
+            return BET_COLORS[type] || BET_COLORS.crash;
+        }
+
+        function formatAmount(value) {
+            return Number(value || 0).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            });
+        }
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, (ch) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;',
+            }[ch]));
+        }
+
+        /* --------------------------------- canvas -------------------------------- */
+        const canvas = $('game-canvas');
+        const ctx = canvas.getContext('2d');
+
+        function sizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            const w = Math.max(1, Math.round(rect.width));
+            const h = Math.max(1, Math.round(rect.height));
+            canvas.width = Math.round(w * dpr);
+            canvas.height = Math.round(h * dpr);
+        }
+
+        window.addEventListener('resize', sizeCanvas);
+        if (window.ResizeObserver && canvas.parentElement) {
+            new ResizeObserver(sizeCanvas).observe(canvas.parentElement);
+        }
+
+        /* ------------------------------ classic canvas ---------------------------- */
+        const classicCanvas = $('crashCanvas');
+        const classicCtx = classicCanvas ? classicCanvas.getContext('2d') : null;
+
+        function resizeClassicCanvas() {
+            if (!classicCanvas || !classicCanvas.parentElement) return;
+            const w = classicCanvas.parentElement.clientWidth;
+            const h = classicCanvas.parentElement.clientHeight;
+            if (!w || !h) return;
+            classicCanvas.width = Math.max(1, w);
+            classicCanvas.height = Math.max(1, h);
+        }
+
+        window.addEventListener('resize', resizeClassicCanvas);
+        if (window.ResizeObserver && classicCanvas?.parentElement) {
+            new ResizeObserver(resizeClassicCanvas).observe(classicCanvas.parentElement);
+        }
+
+        /* --------------------------------- sound --------------------------------- */
+        function initAudio() {
+            if (audioCtx) return;
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch {}
+        }
+
+        document.addEventListener('pointerdown', () => {
+            initAudio();
+            if (audioCtx?.state === 'suspended') audioCtx.resume().catch(() => {});
+        }, { once: true });
+
+        function playSound(type) {
+            if (!soundEnabled || !audioCtx) return;
+            try {
+                if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'tick') {
+                    osc.frequency.setValueAtTime(150 + currentMultiplier() * 20, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.05);
+                } else if (type === 'cashout') {
+                    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                } else if (type === 'crash') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.4);
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.4);
+                }
+            } catch {
+                // AudioContext autoplay policy
+            }
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const btn = $('sound-btn');
+            if (!btn) return;
+            btn.innerHTML = soundEnabled
+                ? '<i class="fa-solid fa-volume-high text-base"></i>'
+                : '<i class="fa-solid fa-volume-xmark text-base text-bcRed"></i>';
+        }
+
+        function currentElapsedSeconds() {
+            if (state.phase === 'running') return Math.max(0, Date.now() - state.runningStart) / 1000;
+            if (state.phase === 'crashed') return (state.frozenElapsed || 0) / 1000;
+            return 0;
+        }
+
+        function currentMultiplier() {
+            if (state.phase === 'running') {
+                return Math.exp(state.growthRate * currentElapsedSeconds());
+            }
+            if (state.phase === 'crashed') return Number(state.crashPoint ?? state.multiplier) || 1;
+            return 1;
+        }
+
+        function renderCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            const w = canvas.clientWidth || canvas.parentElement.clientWidth;
+            const h = canvas.clientHeight || canvas.parentElement.clientHeight;
+            if (!w || !h) return;
+
+            if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+                canvas.width = Math.round(w * dpr);
+                canvas.height = Math.round(h * dpr);
+            }
+
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+
+            const padX = Math.max(28, w * 0.08);
+            const padY = Math.max(28, h * 0.12);
+            const baseY = h - padY;
+            const usableW = Math.max(10, w - padX * 2);
+            const usableH = Math.max(10, h - padY * 2);
+
+            ctx.beginPath();
+            ctx.moveTo(padX, baseY);
+            ctx.lineTo(padX + usableW, baseY);
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.15)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            if (state.phase === 'waiting' || state.phase === 'idle') return;
+
+            const crashed = state.phase === 'crashed';
+            const multiplier = crashed
+                ? Number(state.crashPoint ?? state.multiplier) || 1
+                : currentMultiplier();
+            const progress = Math.min(Math.log(Math.max(1, multiplier)) / Math.log(20), 1);
+            const endX = padX + usableW * progress;
+            const endY = baseY - usableH * Math.min((multiplier - 1) / 10, 1);
+            const controlX = padX + (endX - padX) * 0.5;
+            const controlY = baseY;
+
+            ctx.beginPath();
+            ctx.moveTo(padX, baseY);
+            ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+            ctx.lineTo(endX, baseY);
+            ctx.closePath();
+            const grad = ctx.createLinearGradient(0, Math.min(endY, baseY), 0, baseY);
+            grad.addColorStop(0, crashed ? 'rgba(239, 68, 68, 0.20)' : 'rgba(0, 230, 118, 0.18)');
+            grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(padX, baseY);
+            ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+            ctx.lineWidth = 4;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = crashed ? '#ef4444' : '#00e676';
+            ctx.shadowColor = crashed ? 'rgba(239, 68, 68, 0.55)' : 'rgba(0, 230, 118, 0.55)';
+            ctx.shadowBlur = 16;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            ctx.beginPath();
+            ctx.arc(endX, endY, 7, 0, Math.PI * 2);
+            ctx.fillStyle = crashed ? '#ef4444' : '#ffffff';
+            ctx.shadowColor = crashed ? '#ef4444' : '#00e676';
+            ctx.shadowBlur = 18;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        /* --------------------------------- toast --------------------------------- */
+        async function copyToClipboard(text, successMessage = 'تم النسخ بنجاح.') {
+            if (!text || text === '—') {
+                showToast('لا توجد قيمة', 'لا يوجد عنوان بذرة لنسخه.', 'error');
+                return false;
+            }
+
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const helper = document.createElement('textarea');
+                    helper.value = text;
+                    helper.setAttribute('readonly', '');
+                    helper.style.position = 'fixed';
+                    helper.style.left = '-9999px';
+                    document.body.appendChild(helper);
+                    helper.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(helper);
+                }
+                showToast('تم النسخ', successMessage);
+                return true;
+            } catch {
+                showToast('فشل النسخ', 'تعذر نسخ عنوان البذرة.', 'error');
+                return false;
+            }
+        }
+
+        function showToast(title, msg, type = 'success') {
+            const toast = $('toast');
+            const toastTitle = $('toast-title');
+            const toastMsg = $('toast-message');
+            const toastIcon = $('toast-icon');
+
+            toastTitle.innerText = title;
+            toastMsg.innerText = msg;
+
+            if (type === 'error') {
+                toast.style.borderColor = '#ef4444';
+                toastIcon.style.backgroundColor = '#ef4444';
+            } else {
+                toast.style.borderColor = '#00e676';
+                toastIcon.style.backgroundColor = '#00e676';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        /* ------------------------------ UI renderers ----------------------------- */
+        function resolveFairRound(roundItem = null) {
+            if (roundItem) {
+                state.selectedFairRound = roundItem;
+                return roundItem;
+            }
+
+            if (state.selectedFairRound) {
+                return state.selectedFairRound;
+            }
+
+            const fallback = state.round || (state.history && state.history[0]) || null;
+            state.selectedFairRound = fallback;
+            return fallback;
+        }
+
+        function populateFairModal() {
+            const round = resolveFairRound();
+            const title = $('fair-round-title');
+            const roundId = $('fair-round-id');
+            const roundResult = $('fair-round-result');
+            const client = $('fair-client-seed');
+            const nonce = $('fair-nonce');
+            const hash = $('fair-server-hash');
+            const salt = $('fair-salt');
+            const serverSeedInput = $('fair-server-seed');
+            const result = $('fair-result');
+
+            if (!title || !roundId || !roundResult || !client || !nonce || !hash || !salt || !serverSeedInput || !result) return;
+
+            state.selectedFairRound = round;
+
+            if (!round) {
+                title.innerText = 'لا توجد جولة';
+                roundId.innerText = '—';
+                roundResult.innerText = '—';
+                client.innerText = '—';
+                nonce.innerText = '—';
+                hash.innerText = '—';
+                salt.innerText = '—';
+                serverSeedInput.value = '';
+                result.innerText = 'لا توجد بيانات جولة متاحة.';
+                return;
+            }
+
+            const saltValue = round.clientSeed && round.nonce != null ? `${round.clientSeed}:${round.nonce}` : '—';
+            title.innerText = `الجولة #${round.roundNumber ?? '-'}`;
+            roundId.innerText = round.id ? String(round.id).slice(0, 12) : '—';
+            roundResult.innerText = round.crashPoint != null ? `${Number(round.crashPoint).toFixed(2)}x` : '—';
+            client.innerText = round.clientSeed || '—';
+            nonce.innerText = round.nonce != null ? String(round.nonce) : '—';
+            hash.innerText = round.serverSeedHash || '—';
+            salt.innerText = saltValue;
+            serverSeedInput.value = '';
+            result.innerText = 'انتظر التحقق...';
+        }
+
+        function openFairModal(roundItem = null) {
+            const modal = $('fair-modal');
+            if (!modal) return;
+
+            const selected = resolveFairRound(roundItem);
+            state.selectedFairRound = selected;
+            const title = $('fair-round-title');
+            const roundId = $('fair-round-id');
+            const roundResult = $('fair-round-result');
+            const client = $('fair-client-seed');
+            const nonce = $('fair-nonce');
+            const hash = $('fair-server-hash');
+            const salt = $('fair-salt');
+            const serverSeedInput = $('fair-server-seed');
+
+            if (selected && title && roundId && roundResult && client && nonce && hash && salt && serverSeedInput) {
+                title.innerText = `الجولة #${selected.roundNumber ?? '-'}`;
+                roundId.innerText = selected.id ? String(selected.id).slice(0, 12) : '—';
+                roundResult.innerText = selected.crashPoint != null ? `${Number(selected.crashPoint).toFixed(2)}x` : '—';
+                client.innerText = selected.clientSeed || '—';
+                nonce.innerText = selected.nonce != null ? String(selected.nonce) : '—';
+                hash.innerText = selected.serverSeedHash || '—';
+                salt.innerText = selected.clientSeed && selected.nonce != null ? `${selected.clientSeed}:${selected.nonce}` : '—';
+                serverSeedInput.value = '';
+            }
+
+            modal.classList.remove('hidden');
+            verifyProvablyFair();
+        }
+
+        function verifyProvablyFair() {
+            const selectedRound = state.selectedFairRound || state.round || (state.history || [])[0] || null;
+            const rawServerSeed = ($('fair-server-seed')?.value || '').trim();
+            const clientSeed = ($('fair-client-seed')?.innerText || '').trim();
+            const nonce = ($('fair-nonce')?.innerText || '').trim();
+            const expectedHash = ($('fair-server-hash')?.innerText || '').trim();
+            const saltValue = ($('fair-salt')?.innerText || '').trim();
+            const resultEl = $('fair-result');
+            if (!resultEl) return;
+
+            const normalizedServerSeed = rawServerSeed.toLowerCase();
+            const normalizedClientSeed = clientSeed.toLowerCase();
+            const normalizedHash = expectedHash.toLowerCase();
+
+            if (!rawServerSeed || !clientSeed || nonce === '—') {
+                resultEl.className = 'mt-2 rounded bg-bcBg border border-red-500/30 p-2 font-mono text-xs text-red-300';
+                resultEl.innerText = 'أدخل server seed الحقيقي ثم تحقق.';
+                return;
+            }
+
+            if (!/^[a-f0-9]+$/i.test(rawServerSeed)) {
+                resultEl.className = 'mt-2 rounded bg-bcBg border border-red-500/30 p-2 font-mono text-xs text-red-300';
+                resultEl.innerText = 'قيمة Server Seed غير صالحة. أدخل نص سدادة hex فقط.';
+                return;
+            }
+
+            if (normalizedServerSeed === normalizedHash) {
+                resultEl.className = 'mt-2 rounded bg-bcBg border border-red-500/30 p-2 font-mono text-xs text-red-300';
+                resultEl.innerText = 'أدخل Server Seed الحقيقي، وليس Hash. هذا الحقل يتطلب البذرة الأصلية.';
+                return;
+            }
+
+            const edgePercent = Number(selectedRound?.houseEdgePercent ?? state.houseEdgePercent ?? 1);
+            const houseEdge = Math.min(0.99, Math.max(0, edgePercent / 100));
+            const houseFactor = 100 * (1 - houseEdge);
+
+            const saltMessage = saltValue !== '—' ? saltValue : `${normalizedClientSeed}:${nonce}`;
+            const hmac = CryptoJS.HmacSHA256(saltMessage, normalizedServerSeed).toString();
+            const seed = hmac.slice(0, 13);
+            const r = parseInt(seed, 16);
+            let x = r / Math.pow(2, 52);
+            x = houseFactor / (1 - x);
+            const crashPoint = Math.max(1, Math.floor(x) / 100);
+            const computedHash = CryptoJS.SHA256(normalizedServerSeed).toString();
+            const hashMatch = normalizedHash !== '—' ? computedHash.toLowerCase() === normalizedHash : true;
+
+            const roundLabel = selectedRound?.roundNumber != null ? `#${selectedRound.roundNumber}` : 'الجولة الحالية';
+            const expectedCrash = Number(selectedRound?.crashPoint ?? crashPoint) || crashPoint;
+
+            resultEl.className = 'mt-2 rounded bg-bcBg border border-gray-800 p-2 font-mono text-xs text-bcTextGray';
+            resultEl.innerHTML = `
+                <div class="space-y-1">
+                    <div>Round: <span class="font-bold text-white">${roundLabel}</span></div>
+                    <div>House Edge: <span class="font-bold text-white">${edgePercent.toFixed(2)}%</span></div>
+                    <div>Expected Crash: <span class="font-bold text-bcBrightGreen">${expectedCrash.toFixed(2)}x</span></div>
+                    <div>Computed Crash: <span class="font-bold text-bcBrightGreen">${crashPoint.toFixed(2)}x</span></div>
+                    <div>Salt / Message: <span class="break-all text-[10px]">${saltMessage}</span></div>
+                    <div>HMAC: <span class="break-all text-[10px]">${hmac}</span></div>
+                    <div>SHA256(Server Seed): <span class="break-all text-[10px]">${computedHash}</span></div>
+                    <div>Hash match: <span class="${hashMatch ? 'text-bcBrightGreen' : 'text-red-400'}">${hashMatch ? 'VALID ✓' : 'MISMATCH ✕'}</span></div>
+                    <div class="${hashMatch ? 'text-bcBrightGreen' : 'text-red-400'} text-[10px]">${hashMatch ? 'تم التحقق بنجاح.' : 'القيمة المدخلة ليست Server Seed الحقيقي، أو هي hash وليس seed.'}</div>
+                </div>
+            `;
+        }
+
+        const betDetailModal = $('bet-detail-modal');
+        if (betDetailModal) {
+            betDetailModal.addEventListener('click', (event) => {
+                if (event.target === betDetailModal) closeBetDetailModal();
+            });
+        }
+
+        function renderTrenballHistory() {
+            const container = $('history-bar');
+            container.innerHTML = '';
+
+            const items = (state.history || []).slice(0, 20);
+            for (const item of items) {
+                const val = Number(item.crashPoint ?? item);
+                if (!Number.isFinite(val)) continue;
+
+                const color = val < 2 ? 'text-red-500' : val >= 10 ? 'text-yellow-400' : 'text-green-400';
+                const chip = document.createElement('span');
+                chip.className = `px-2.5 py-1 rounded-full text-xs font-bold bg-gray-800 ${color} shrink-0 cursor-pointer`;
+                chip.innerText = `${val.toFixed(2)}x`;
+                chip.title = `الجولة #${item.roundNumber ?? '-'} — تحقق`;
+                chip.addEventListener('click', () => {
+                    state.selectedFairRound = item;
+                    openFairModal(item);
+                });
+                container.appendChild(chip);
+            }
+        }
+
+        function setHistoryPageSize(size) {
+            const nextSize = Number(size) || 15;
+            state.historyPerPage = nextSize;
+            state.historyPage = 1;
+            renderHistoryList();
+        }
+
+        function toggleHistoryDropdown() {
+            const panel = $('history-dropdown');
+            if (!panel) return;
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) renderHistoryList();
+        }
+
+        function changeHistoryPage(direction) {
+            const totalPages = Math.max(1, Math.ceil((state.history || []).length / state.historyPerPage));
+            state.historyPage += direction;
+            if (state.historyPage < 1) state.historyPage = 1;
+            if (state.historyPage > totalPages) state.historyPage = totalPages;
+            renderHistoryList();
+        }
+
+        function renderHistoryList() {
+            const list = $('history-list');
+            const pageEl = $('history-page');
+            const prevBtn = $('history-prev');
+            const nextBtn = $('history-next');
+            if (!list || !pageEl || !prevBtn || !nextBtn) return;
+
+            const items = state.history || [];
+            const totalPages = Math.max(1, Math.ceil(items.length / state.historyPerPage));
+            if (state.historyPage > totalPages) state.historyPage = totalPages;
+            if (state.historyPage < 1) state.historyPage = 1;
+
+            const start = (state.historyPage - 1) * state.historyPerPage;
+            const pageItems = items.slice(start, start + state.historyPerPage);
+            list.innerHTML = '';
+
+            if (!pageItems.length) {
+                const empty = document.createElement('div');
+                empty.className = 'px-3 py-6 text-center text-[10px] text-bcTextGray';
+                empty.innerText = 'لا توجد نتائج بعد';
+                list.appendChild(empty);
+            } else {
+                for (const item of pageItems) {
+                    const val = Number(item?.crashPoint ?? item ?? 0);
+                    const row = document.createElement('button');
+                    row.type = 'button';
+                    row.className = 'w-full flex items-center justify-between px-3 py-2 text-[10px] text-right hover:bg-gray-800/50';
+                    row.innerHTML = `
+                        <span class="text-bcTextGray">#${item?.roundNumber ?? '-'}</span>
+                        <span class="font-bold ${val < 2 ? 'text-red-400' : val >= 10 ? 'text-yellow-400' : 'text-green-400'}">${Number.isFinite(val) ? val.toFixed(2) + 'x' : '—'}</span>
+                    `;
+                    row.addEventListener('click', () => {
+                        $('history-dropdown')?.classList.add('hidden');
+                        state.selectedFairRound = item;
+                        openFairModal(item);
+                    });
+                    list.appendChild(row);
+                }
+            }
+
+            pageEl.innerText = `${state.historyPage} / ${totalPages}`;
+            prevBtn.disabled = state.historyPage <= 1;
+            nextBtn.disabled = state.historyPage >= totalPages;
+        }
+
+        function betCell(bet) {
+            if (!bet) return '<span class="text-gray-300"></span><span class="font-bold"></span>';
+
+            const name = escapeHtml((bet.username || 'player').slice(0, 8));
+            const amount = formatAmount(bet.amount);
+            const color = betTypeColor(bet.betType);
+
+            return `<span class="text-gray-300 truncate max-w-[70px]">${name}</span>`
+                + `<span class="${color} font-bold whitespace-nowrap">${amount} USDT</span>`;
+        }
+
+        function renderTrenballBetsTable() {
+            const container = $('live-bets');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const bets = state.bets || [];
+            if (!bets.length) {
+                const empty = document.createElement('div');
+                empty.className = 'text-center text-gray-500 py-6';
+                empty.innerText = 'لا توجد رهانات بعد — كن أول من يراهن!';
+                container.appendChild(empty);
+                return;
+            }
+
+            const sorted = [...bets].sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0));
+            for (let i = 0; i < sorted.length; i += 2) {
+                const row = document.createElement('div');
+                row.className = 'flex justify-between items-center p-1.5 hover:bg-gray-800/40 rounded';
+                row.innerHTML = betCell(sorted[i]) + betCell(sorted[i + 1]);
+                container.appendChild(row);
+            }
+        }
+
+        function findBetRoundDetails(bet) {
+            if (!bet) return null;
+            const pool = [...(state.history || []), ...(state.round ? [state.round] : [])];
+            return pool.find((round) => {
+                if (!round) return false;
+                const roundNumberMatch = Number(round.roundNumber ?? round.round_number) === Number(bet.roundNumber ?? bet.round_id ?? 0);
+                const idMatch = round.id && bet.roundId && String(round.id) === String(bet.roundId);
+                return roundNumberMatch || idMatch;
+            }) || null;
+        }
+
+        function closeBetDetailModal() {
+            const modal = $('bet-detail-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+        function openBetDetailModal(bet) {
+            const modal = $('bet-detail-modal');
+            if (!modal || !bet) return;
+
+            const round = findBetRoundDetails(bet) || {};
+            const serverSeedHash = bet.serverSeedHash || round.serverSeedHash || 'غير متوفر';
+            const serverSeed = bet.serverSeed || round.serverSeed || 'غير متوفر';
+            const clientSeed = bet.clientSeed || round.clientSeed || 'غير متوفر';
+            const nonceValue = bet.nonce ?? round.nonce;
+            const saltValue = clientSeed !== 'غير متوفر' && nonceValue != null ? `${clientSeed}:${nonceValue}` : '—';
+            const amount = Number(bet.amount || 0);
+            const payout = Number(bet.payout || 0);
+            const cashoutMultiplier = Number(bet.cashoutMultiplier || round.crashPoint || 0);
+            const statusText = bet.status === 'won' ? 'فائز' : bet.status === 'lost' ? 'خاسر' : bet.status === 'cancelled' ? 'ملغي' : 'نشط';
+
+            $('bet-detail-title').innerText = `تفاصيل الجولة #${bet.roundNumber || '-'}`;
+            $('bet-detail-status').innerText = statusText;
+            $('bet-detail-result').innerText = round.crashPoint != null ? `${Number(round.crashPoint).toFixed(2)}x` : bet.status === 'won' ? `${cashoutMultiplier.toFixed(2)}x` : '—';
+            $('bet-detail-amount').innerText = `$${formatAmount(amount)}`;
+            $('bet-detail-payout').innerText = bet.status === 'won' ? `$${formatAmount(payout)}` : '$0.00';
+            $('bet-detail-multiplier').innerText = bet.status === 'won' ? `${cashoutMultiplier.toFixed(2)}x` : bet.status === 'lost' ? 'Busted' : bet.status === 'cancelled' ? 'Cancelled' : '—';
+            $('bet-detail-round-id').innerText = bet.roundId ? String(bet.roundId).slice(0, 12) : '—';
+            $('bet-detail-created').innerText = bet.createdAt ? new Date(bet.createdAt).toLocaleString('ar-EG') : '—';
+            $('bet-detail-round-result').innerText = round.crashPoint != null ? `${Number(round.crashPoint).toFixed(2)}x` : '—';
+            $('bet-detail-hash').innerText = serverSeedHash;
+            $('bet-detail-server-seed').innerText = serverSeed;
+            $('bet-detail-client-seed').innerText = clientSeed;
+            $('bet-detail-nonce').innerText = nonceValue != null ? String(nonceValue) : '—';
+            $('bet-detail-salt').innerText = saltValue;
+
+            const detailCopyServerSeedBtn = $('bet-detail-copy-server-seed');
+            if (detailCopyServerSeedBtn) {
+                detailCopyServerSeedBtn.onclick = () => copyToClipboard(serverSeed === 'غير متوفر' ? '' : serverSeed, 'تم نسخ Server Seed الحقيقي للتحقق.');
+            }
+
+            const detailCopyClientSeedBtn = $('bet-detail-copy-client-seed');
+            if (detailCopyClientSeedBtn) {
+                detailCopyClientSeedBtn.onclick = () => copyToClipboard(clientSeed === 'غير متوفر' ? '' : clientSeed, 'تم نسخ Client Seed للتحقق.');
+            }
+
+            const detailCopyNonceBtn = $('bet-detail-copy-nonce');
+            if (detailCopyNonceBtn) {
+                detailCopyNonceBtn.onclick = () => copyToClipboard(nonceValue != null ? String(nonceValue) : '', 'تم نسخ Nonce للتحقق.');
+            }
+
+            const detailCopySaltBtn = $('bet-detail-copy-salt');
+            if (detailCopySaltBtn) {
+                detailCopySaltBtn.onclick = () => copyToClipboard(saltValue === '—' ? '' : saltValue, 'تم نسخ Salt / Message للتحقق.');
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function renderTrenballUserBets() {
+            const body = $('user-bets-body');
+            const empty = $('user-bets-empty');
+            const countEl = $('user-bets-count');
+            const pageEl = $('user-bets-page');
+            const prevBtn = $('user-bets-prev');
+            const nextBtn = $('user-bets-next');
+            if (!body || !empty || !countEl || !pageEl || !prevBtn || !nextBtn) return;
+
+            const bets = state.userBets || [];
+            const totalPages = Math.max(1, Math.ceil(bets.length / state.betsPerPage));
+            if (state.currentPage > totalPages) state.currentPage = totalPages;
+            if (state.currentPage < 1) state.currentPage = 1;
+
+            const startIndex = (state.currentPage - 1) * state.betsPerPage;
+            const endIndex = startIndex + state.betsPerPage;
+            const visibleBets = bets.slice(startIndex, endIndex);
+
+            body.innerHTML = '';
+            countEl.innerText = String(bets.length);
+            pageEl.innerText = `${state.currentPage} / ${totalPages}`;
+            prevBtn.disabled = state.currentPage <= 1;
+            nextBtn.disabled = state.currentPage >= totalPages;
+            empty.classList.toggle('hidden', bets.length > 0);
+
+            for (const bet of visibleBets) {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-800/70 cursor-pointer hover:bg-gray-800/40';
+                row.title = 'اضغط لعرض تفاصيل الجولة';
+                row.addEventListener('click', () => openBetDetailModal(bet));
+
+                let multiplierText = '—';
+                let multiplierClass = 'text-yellow-300';
+                let payoutText = '—';
+
+                if (bet.status === 'won') {
+                    multiplierText = `${Number(bet.cashoutMultiplier || 0).toFixed(2)}x`;
+                    multiplierClass = 'text-green-400';
+                    payoutText = `$${formatAmount(bet.payout || 0)}`;
+                } else if (bet.status === 'lost') {
+                    multiplierText = 'Busted';
+                    multiplierClass = 'text-red-400';
+                    payoutText = '$0.00';
+                } else if (bet.status === 'cancelled') {
+                    multiplierText = 'Cancelled';
+                    multiplierClass = 'text-gray-400';
+                    payoutText = '$0.00';
+                }
+
+                row.innerHTML = `
+                    <td class="px-2 py-2 font-semibold text-gray-300">#${bet.roundNumber || '-'}</td>
+                    <td class="px-2 py-2 font-mono text-gray-400">$${formatAmount(bet.amount || 0)}</td>
+                    <td class="px-2 py-2 font-mono ${multiplierClass}">${multiplierText}</td>
+                    <td class="px-2 py-2 text-right font-mono ${bet.status === 'won' ? 'text-green-400' : 'text-gray-500'}">${payoutText}</td>
+                `;
+                body.appendChild(row);
+            }
+        }
+
+        function updateUserBets(bets) {
+            state.userBets = bets || [];
+            state.currentPage = 1;
+            renderUserBets();
+        }
+
+        function goToPrevUserBetPage() {
+            if (state.currentPage > 1) {
+                state.currentPage -= 1;
+                renderUserBets();
+            }
+        }
+
+        function goToNextUserBetPage() {
+            const totalPages = Math.max(1, Math.ceil((state.userBets || []).length / state.betsPerPage));
+            if (state.currentPage < totalPages) {
+                state.currentPage += 1;
+                renderUserBets();
+            }
+        }
+
+        async function loadUserBets() {
+            if (!state.session?.access_token) {
+                state.userBets = [];
+                renderUserBets();
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/user-bets', {
+                    headers: { Authorization: `Bearer ${state.session.access_token}` },
+                });
+                if (!response.ok) throw new Error('failed');
+                const data = await response.json();
+                updateUserBets(data?.bets || []);
+            } catch {
+                state.userBets = [];
+                renderUserBets();
+            }
+        }
+
+        function updateBearBull() {
+            const bets = state.bets || [];
+            const redBets = bets.filter((b) => b.betType === 'red');
+            const greenBets = bets.filter((b) => b.betType === 'green' || b.betType === 'moon');
+
+            const redAmount = redBets.reduce((sum, b) => sum + Number(b.amount || 0), 0);
+            const greenAmount = greenBets.reduce((sum, b) => sum + Number(b.amount || 0), 0);
+            const total = redAmount + greenAmount;
+            const redPct = total > 0 ? (redAmount / total) * 100 : 50;
+
+            $('bear-count').innerText = String(redBets.length);
+            $('bull-count').innerText = String(greenBets.length);
+            $('bear-amount').innerText = formatAmount(redAmount);
+            $('bull-amount').innerText = formatAmount(greenAmount);
+            $('bear-bar').style.width = `${redPct}%`;
+            $('bull-bar').style.width = `${100 - redPct}%`;
+        }
+
+        function updateBalanceUI() {
+            const text = formatAmount(state.balance);
+            $('user-balance').innerText = text;
+            if ($('account-balance')) $('account-balance').innerText = `${text} USDT`;
+        }
+
+        function updateAccountUI() {
+            const guest = $('account-guest');
+            const user = $('account-user');
+            if (!guest || !user) return;
+
+            if (state.user) {
+                guest.classList.add('hidden');
+                user.classList.remove('hidden');
+                $('account-username').innerText = state.user.username || 'player';
+                $('account-balance').innerText = `${formatAmount(state.balance)} USDT`;
+            } else {
+                guest.classList.remove('hidden');
+                user.classList.add('hidden');
+            }
+        }
+
+        function updateMultiplierUI() {
+            const el = $('multiplier-text');
+            if (state.phase === 'crashed') {
+                el.innerText = `${Number(state.crashPoint ?? state.multiplier).toFixed(2)}x`;
+                el.className = 'text-6xl md:text-7xl font-extrabold text-red-500 tracking-tight';
+            } else if (state.phase === 'running') {
+                el.innerText = `${currentMultiplier().toFixed(2)}x`;
+                el.className = 'text-6xl md:text-7xl font-extrabold text-yellow-400 tracking-tight';
+            } else {
+                el.innerText = '1.00x';
+                el.className = 'text-6xl md:text-7xl font-extrabold text-yellow-400 tracking-tight';
+            }
+        }
+
+        function updateCrashProfit() {
+            if (state.myBet?.betType === 'crash' && !state.cashedOut) {
+                const sub = $('crash-btn-sub');
+                if (sub) sub.innerText = `${formatAmount(Number(state.myBet.amount || 0) * currentMultiplier())} USDT`;
+            }
+        }
+
+        function setBusyClass(el, busy) {
+            if (!el) return;
+            el.classList.toggle('busy', busy);
+        }
+
+        function updateBetButtons() {
+            const my = state.myBet;
+            const crashBtn = $('bet-crash');
+            const crashTitle = $('crash-btn-title');
+            const crashSub = $('crash-btn-sub');
+
+            crashBtn.className = 'tren-tab-btn crash-active p-3 rounded-lg text-center flex flex-col items-center';
+            crashTitle.innerText = 'Crash رهان';
+            crashSub.innerText = 'الجولة القادمة';
+
+            if (state.phase === 'waiting') {
+                if (my?.betType === 'crash') {
+                    crashBtn.className = 'tren-tab-btn red-active selected p-3 rounded-lg text-center flex flex-col items-center';
+                    crashTitle.innerText = 'إلغاء الرهان';
+                    crashSub.innerText = 'استعادة المبلغ';
+                } else if (my) {
+                    crashTitle.innerText = 'رهانك نشط';
+                    crashSub.innerText = betTypeLabel(my.betType);
+                    crashBtn.classList.add('busy');
+                }
+            } else if (state.phase === 'running') {
+                if (my?.betType === 'crash' && !state.cashedOut) {
+                    crashBtn.className = 'tren-tab-btn green-active selected p-3 rounded-lg text-center flex flex-col items-center';
+                    crashTitle.innerText = 'سحب الأرباح';
+                    crashSub.innerText = `${formatAmount(Number(my.amount || 0) * currentMultiplier())} USDT`;
+                } else if (my) {
+                    crashTitle.innerText = 'رهانك نشط';
+                    crashSub.innerText = betTypeLabel(my.betType);
+                    crashBtn.classList.add('busy');
+                } else {
+                    crashTitle.innerText = 'الجولة مستمرة';
+                    crashSub.innerText = 'انتظر الجولة القادمة';
+                    crashBtn.classList.add('busy');
+                }
+            } else if (state.phase === 'crashed') {
+                crashTitle.innerText = 'انتهت الجولة';
+                crashSub.innerText = 'إعادة التشغيل...';
+                crashBtn.classList.add('busy');
+            } else {
+                crashTitle.innerText = 'بانتظار الجولة';
+                crashSub.innerText = 'جارٍ الاتصال...';
+                crashBtn.classList.add('busy');
+            }
+
+            for (const type of ['red', 'green', 'moon']) {
+                const el = $(`bet-${type}`);
+                if (!el) continue;
+                el.classList.toggle('selected', my?.betType === type);
+                setBusyClass(el, state.busy);
+            }
+
+            setBusyClass(crashBtn, state.busy);
+        }
+
+        /* ---------------------------------- auth --------------------------------- */
+        function openAccount() {
+            const modal = $('account-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            updateAccountUI();
+            if (!state.user) switchAuthTab('login');
+        }
+
+        function closeAccount() {
+            const modal = $('account-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            showAuthError('');
+        }
+
+        function switchAuthTab(tab) {
+            const loginForm = $('form-login');
+            const regForm = $('form-register');
+            const loginTab = $('auth-tab-login');
+            const regTab = $('auth-tab-register');
+
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                regForm.classList.add('hidden');
+                loginTab.className = 'flex-1 px-4 py-2 rounded-lg text-xs font-bold transition bg-card text-white shadow';
+                regTab.className = 'flex-1 px-4 py-2 rounded-lg text-xs font-bold transition text-gray-400 hover:text-white';
+            } else {
+                loginForm.classList.add('hidden');
+                regForm.classList.remove('hidden');
+                regTab.className = 'flex-1 px-4 py-2 rounded-lg text-xs font-bold transition bg-card text-white shadow';
+                loginTab.className = 'flex-1 px-4 py-2 rounded-lg text-xs font-bold transition text-gray-400 hover:text-white';
+            }
+            showAuthError('');
+        }
+
+        function showAuthError(message) {
+            const el = $('auth-error');
+            if (!el) return;
+            el.textContent = message || '';
+        }
+
+        function mapAuthError(message) {
+            if (/Invalid login credentials/i.test(message)) return 'البريد أو كلمة المرور غير صحيحة.';
+            if (/Email not confirmed/i.test(message)) return 'يرجى تأكيد بريدك الإلكتروني أولاً.';
+            if (/User already registered/i.test(message)) return 'هذا البريد مسجّل بالفعل.';
+            if (/rate limit/i.test(message)) return 'تم تجاوز الحد المؤقت. حاول لاحقًا.';
+            return message;
+        }
+
+        async function submitAuth(event, type) {
+            event.preventDefault();
+            showAuthError('');
+
+            if (!state.sb) {
+                if (state.config?.mode === 'supabase') {
+                    return showAuthError('تعذر تحميل خدمة المصادقة. أعد تحميل الصفحة.');
+                }
+                closeAccount();
+                return;
+            }
+
+            try {
+                if (type === 'login') {
+                    const email = $('login-email').value.trim();
+                    const password = $('login-password').value;
+                    if (!email || !password) return showAuthError('أدخل البريد وكلمة المرور.');
+
+                    const { data, error } = await state.sb.auth.signInWithPassword({ email, password });
+                    if (error) return showAuthError(mapAuthError(error.message));
+                    state.session = data.session;
+                    closeAccount();
+                    connect(data.session.access_token);
+                    showToast('تم تسجيل الدخول', 'مرحبًا بك في BC.Game');
+                } else {
+                    const username = $('reg-username').value.trim();
+                    const email = $('reg-email').value.trim();
+                    const password = $('reg-password').value;
+
+                    if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) {
+                        return showAuthError('اسم المستخدم 3-20 حرفًا (أحرف/أرقام/شرطة سفلية).');
+                    }
+                    if (!email || password.length < 6) {
+                        return showAuthError('أدخل بريدًا صحيحًا وكلمة مرور من 6 أحرف على الأقل.');
+                    }
+
+                    const response = await fetch('/api/auth/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, email, password }),
+                    });
+                    const result = await response.json().catch(() => ({}));
+                    if (!response.ok) return showAuthError(result.error || 'تعذر إنشاء الحساب.');
+
+                    const { data, error } = await state.sb.auth.signInWithPassword({ email, password });
+                    if (error) return showAuthError(mapAuthError(error.message));
+                    state.session = data.session;
+                    closeAccount();
+                    connect(data.session.access_token);
+                    showToast('تم إنشاء الحساب', 'مرحبًا بك! تمت إضافة 1000 رصيد تجريبي.');
+                }
+            } catch (err) {
+                showAuthError(err.message || 'حدث خطأ غير متوقع.');
+            }
+        }
+
+        async function logout() {
+            try {
+                await state.sb?.auth.signOut();
+            } catch {}
+
+            if (state.socket) {
+                state.socket.removeAllListeners();
+                state.socket.disconnect();
+                state.socket = null;
+            }
+
+            state.user = null;
+            state.session = null;
+            state.myBet = null;
+            state.pendingBet = null;
+            state.bets = [];
+            state.userBets = [];
+            state.balance = 0;
+            state.cashedOut = false;
+            state.autoCashedOut = false;
+
+            updateBalanceUI();
+            updateAccountUI();
+            updateAvatar();
+            renderBetsTable();
+            renderUserBets();
+            updateBearBull();
+            updateBetButtons();
+            updateActionButton();
+            closeAccount();
+            showToast('تم تسجيل الخروج', 'يمكنك تسجيل الدخول في أي وقت.');
+            connect(null);
+        }
+
+        async function refreshBalance() {
+            if (!state.session?.access_token) return;
+            try {
+                const response = await fetch('/api/me', {
+                    headers: { Authorization: `Bearer ${state.session.access_token}` },
+                });
+                if (!response.ok) return;
+                const data = await response.json();
+                state.balance = Number(data.balance) || 0;
+                updateBalanceUI();
+                updateAccountUI();
+            } catch {}
+        }
+
+        /* --------------------------------- socket -------------------------------- */
+        function connect(token) {
+            if (state.socket) {
+                state.socket.removeAllListeners();
+                state.socket.disconnect();
+            }
+
+            const socket = io({ auth: token ? { token } : {} });
+            state.socket = socket;
+
+            socket.on('connect_error', (error) => {
+                console.error('socket error:', error.message);
+                if (error.message === 'UNAUTHORIZED') {
+                    state.session = null;
+                    state.user = null;
+                    if (state.sb) state.sb.auth.signOut().catch(() => {});
+                    setTimeout(() => connect(null), 300);
+                }
+            });
+
+            socket.on('me', (me) => {
+                state.user = me || null;
+                updateAccountUI();
+                updateAvatar();
+                recomputeMyBet();
+                renderBetsTable();
+                updateBearBull();
+                updateBetButtons();
+                updateActionButton();
+                if (state.user) loadUserBets();
+            });
+
+            socket.on('balance', (payload) => {
+                state.balance = Number(payload.balance) || 0;
+                updateBalanceUI();
+                updateAccountUI();
+            });
+
+            socket.on('state', applyState);
+            socket.on('round:waiting', onWaiting);
+            socket.on('round:running', onRunning);
+            socket.on('tick', onTick);
+            socket.on('round:crashed', onCrashed);
+
+            socket.on('history', (history) => {
+                state.history = history || [];
+                renderHistory();
+            });
+
+            socket.on('house-edge', (payload) => {
+                const value = Number(payload?.houseEdgePercent);
+                if (Number.isFinite(value)) state.houseEdgePercent = value;
+            });
+
+            socket.on('bets:list', (bets) => {
+                state.bets = bets || [];
+                recomputeMyBet();
+                renderBetsTable();
+                updateBearBull();
+                updateBetButtons();
+                resolvePendingBet();
+            });
+
+            socket.on('bet:placed', (bet) => {
+                if (!state.user || bet.userId !== state.user.id) return;
+                state.userBets = [bet, ...state.userBets].slice(0, 50);
+                state.currentPage = 1;
+                renderUserBets();
+            });
+
+            socket.on('bet:cashout', (bet) => {
+                if (!state.user || bet.userId !== state.user.id) return;
+                const index = state.userBets.findIndex((item) => item.id === bet.id);
+                if (index >= 0) {
+                    state.userBets[index] = { ...state.userBets[index], ...bet };
+                } else {
+                    state.userBets = [bet, ...state.userBets].slice(0, 50);
+                }
+                renderUserBets();
+            });
+
+            socket.on('bet:cancelled', (bet) => {
+                if (!state.user || bet.userId !== state.user.id) return;
+                const index = state.userBets.findIndex((item) => item.id === bet.id);
+                if (index >= 0) {
+                    state.userBets[index] = { ...state.userBets[index], ...bet };
+                } else {
+                    state.userBets = [bet, ...state.userBets].slice(0, 50);
+                }
+                renderUserBets();
+            });
+
+            socket.on('fatal', (payload) => {
+                showToast('خطأ', payload?.error || 'حدث خطأ غير متوقع.', 'error');
+            });
+        }
+
+        function recomputeMyBet() {
+            if (!state.user) {
+                state.myBet = null;
+                return;
+            }
+            state.myBet = (state.bets || []).find(
+                (bet) => bet.status === 'active' && bet.userId === state.user.id
+            ) || null;
+        }
+
+        function resolvePendingBet() {
+            if (!state.pendingBet) return;
+
+            const pending = state.pendingBet;
+            const settled = (state.bets || []).find((bet) => bet.id === pending.id);
+            if (!settled) return;
+
+            state.pendingBet = null;
+
+            if (settled.status === 'won') {
+                const payout = Number(settled.payout) || 0;
+                const multiplier = Number(settled.cashoutMultiplier) || 0;
+                showToast(
+                    'فوز!',
+                    `${betTypeLabel(settled.betType)} — ${multiplier.toFixed(2)}x — +${formatAmount(payout)} USDT`
+                );
+            } else if (settled.status === 'lost') {
+                showToast('خسارة', `${betTypeLabel(settled.betType)} — انفجرت الجولة`, 'error');
+            }
+        }
+
+        function applyState(snapshot) {
+            state.phase = snapshot.phase;
+            state.multiplier = Number(snapshot.multiplier) || 1;
+            state.round = snapshot.round;
+            state.history = snapshot.history || [];
+            state.bets = snapshot.bets || [];
+            state.growthRate = snapshot.growthRate ?? state.growthRate;
+            state.waitingMs = snapshot.waitingMs ?? state.waitingMs;
+            state.crashedMs = snapshot.crashedMs ?? state.crashedMs;
+            state.houseEdgePercent = Number(snapshot.houseEdgePercent ?? state.houseEdgePercent) || 0;
+            state.cashedOut = false;
+            state.autoCashedOut = false;
+
+            if (snapshot.phase === 'waiting') {
+                state.waitingEndsAt = snapshot.startsAt || Date.now() + state.waitingMs;
+                state.runningStart = 0;
+                state.crashPoint = null;
+                state.frozenElapsed = 0;
+            } else if (snapshot.phase === 'running') {
+                state.runningStart = snapshot.startedAt || Date.now();
+                state.crashPoint = null;
+                state.frozenElapsed = 0;
+            } else if (snapshot.phase === 'crashed') {
+                state.crashPoint = snapshot.round?.crashPoint ?? snapshot.multiplier;
+                state.frozenElapsed = (Math.log(Math.max(1, state.crashPoint)) / state.growthRate) * 1000;
+            }
+
+            recomputeMyBet();
+            renderHistory();
+            renderBetsTable();
+            updateBearBull();
+            updateMultiplierUI();
+            updateClassicMultiplier();
+            updateHashPreview();
+            updateActionButton();
+            updateBetButtons();
+            renderCanvas();
+            if (state.view === 'classic') {
+                if (state.phase === 'crashed') drawClassicCrashCanvas();
+                else drawClassicCanvas(currentElapsedSeconds());
+            }
+        }
+
+        function onWaiting(payload) {
+            state.phase = 'waiting';
+            state.multiplier = 1;
+            state.round = payload;
+            state.houseEdgePercent = Number(payload.houseEdgePercent ?? state.houseEdgePercent) || 0;
+            state.myBet = null;
+            state.pendingBet = null;
+            state.bets = [];
+            state.cashedOut = false;
+            state.autoCashedOut = false;
+            state.crashPoint = null;
+            state.frozenElapsed = 0;
+            state.runningStart = 0;
+            state.waitingEndsAt = Number(payload.startsAt) || Date.now() + state.waitingMs;
+
+            updateMultiplierUI();
+            updateClassicMultiplier();
+            updateHashPreview();
+            updateActionButton();
+            updateLiveUI();
+            renderBetsTable();
+            updateBearBull();
+            updateBetButtons();
+            renderCanvas();
+        }
+
+        function onRunning(payload) {
+            state.phase = 'running';
+            state.multiplier = 1;
+            state.runningStart = Number(payload.startedAt) || Date.now();
+            state.crashPoint = null;
+            state.frozenElapsed = 0;
+            state.autoCashedOut = false;
+
+            updateMultiplierUI();
+            updateClassicMultiplier();
+            updateActionButton();
+            updateBetButtons();
+            updateLiveUI();
+        }
+
+        function onTick(payload) {
+            if (state.phase !== 'running') return;
+
+            state.multiplier = Number(payload.multiplier) || 1;
+            state.runningStart = Date.now() - (Number(payload.elapsed) || 0);
+            updateMultiplierUI();
+            updateClassicMultiplier();
+            updateCrashProfit();
+            updateActionButton();
+            updateLiveUI();
+            playSound('tick');
+
+            if (state.myBet?.betType === 'crash' && !state.cashedOut && !state.autoCashedOut) {
+                const auto = parseFloat($('auto-cashout')?.value);
+                if (Number.isFinite(auto) && auto > 1 && state.multiplier >= auto) {
+                    state.autoCashedOut = true;
+                    cashout();
+                }
+            }
+        }
+
+        function onCrashed(payload) {
+            const pending = state.myBet;
+
+            state.phase = 'crashed';
+            state.multiplier = Number(payload.crashPoint ?? payload.multiplier) || 1;
+            state.crashPoint = state.multiplier;
+            state.frozenElapsed = (Math.log(Math.max(1, state.crashPoint)) / state.growthRate) * 1000;
+            state.round = { ...(state.round || {}), ...payload };
+
+            state.myBet = null;
+            state.pendingBet = pending;
+            state.cashedOut = false;
+            state.autoCashedOut = false;
+
+            updateMultiplierUI();
+            updateClassicMultiplier();
+            updateActionButton();
+            updateBetButtons();
+            updateLiveUI();
+            renderCanvas();
+            drawClassicCrashCanvas();
+            playSound('crash');
+
+            if (state.history[0]?.id !== payload.id) {
+                state.history = [payload, ...state.history].slice(0, 20);
+            }
+            renderHistory();
+
+            setTimeout(refreshBalance, 250);
+        }
+
+        /* --------------------------------- actions ------------------------------- */
+        function placeBet(type) {
+            if (state.busy) return;
+
+            if (!state.user) {
+                openAccount();
+                showToast('تسجيل الدخول مطلوب', 'سجّل الدخول أو أنشئ حسابًا للمراهنة.', 'error');
+                return;
+            }
+
+            if (type === 'crash') {
+                if (state.phase === 'waiting' && state.myBet) {
+                    if (state.myBet.betType === 'crash') {
+                        cancelBet();
+                    } else {
+                        showToast('لديك رهان بالفعل', 'انتظر انتهاء الجولة الحالية.', 'error');
+                    }
+                    return;
+                }
+                if (state.phase === 'running' && state.myBet?.betType === 'crash' && !state.cashedOut) {
+                    cashout();
+                    return;
+                }
+                if (state.phase !== 'waiting') {
+                    showToast('المراهنة مغلقة', 'انتظر الجولة القادمة.', 'error');
+                    return;
+                }
+            } else {
+                if (state.phase !== 'waiting') {
+                    showToast('المراهنة مغلقة', 'انتظر الجولة القادمة.', 'error');
+                    return;
+                }
+                if (state.myBet) {
+                    showToast('لديك رهان بالفعل', 'يمكنك وضع رهان واحد لكل جولة.', 'error');
+                    return;
+                }
+            }
+
+            const amount = parseFloat(getBetAmountInput()?.value);
+            if (!Number.isFinite(amount) || amount <= 0) {
+                showToast('خطأ', 'يرجى إدخال مبلغ رهان صالح.', 'error');
+                return;
+            }
+            if (amount > state.balance) {
+                showToast('رصيد غير كافٍ', 'يرجى إيداع المزيد من الأموال للعب.', 'error');
+                return;
+            }
+            if (!state.socket) return;
+
+            state.busy = true;
+            updateBetButtons();
+            updateActionButton();
+
+            state.socket.emit('bet', { amount, betType: type }, (response) => {
+                state.busy = false;
+
+                if (!response || !response.ok) {
+                    updateBetButtons();
+                    updateActionButton();
+                    showToast('تعذر وضع الرهان', mapBetError(response), 'error');
+                    return;
+                }
+
+                state.myBet = response.bet;
+                state.balance = Number(response.balance) || 0;
+                state.cashedOut = false;
+                state.autoCashedOut = false;
+
+                updateBalanceUI();
+                updateBetButtons();
+                updateActionButton();
+                renderBetsTable();
+                showToast('تم وضع الرهان', `${betTypeLabel(type)} — ${formatAmount(amount)} USDT`);
+            });
+        }
+
+        function cancelBet() {
+            if (!state.myBet || !state.socket) return;
+
+            state.busy = true;
+            updateBetButtons();
+            updateActionButton();
+
+            let settled = false;
+            const finish = (response) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                state.busy = false;
+
+                if (!response || !response.ok) {
+                    updateBetButtons();
+                    updateActionButton();
+                    showToast('تعذر إلغاء الرهان', mapBetError(response), 'error');
+                    return;
+                }
+
+                state.myBet = null;
+                state.balance = Number(response.balance) || 0;
+                state.cashedOut = false;
+                state.autoCashedOut = false;
+
+                updateBalanceUI();
+                updateBetButtons();
+                updateActionButton();
+                renderBetsTable();
+                showToast('تم إلغاء الرهان', 'تم إعادة المبلغ إلى محفظتك.');
+            };
+
+            const timer = setTimeout(() => {
+                finish({ ok: false, error: 'تعذر الاتصال بالخادم. حاول مرة أخرى.' });
+            }, 3000);
+
+            state.socket.emit('cancel', {}, finish);
+        }
+
+        function cashout() {
+            if (!state.myBet || !state.socket || state.busy) return;
+
+            state.busy = true;
+            updateBetButtons();
+            updateActionButton();
+
+            state.socket.emit('cashout', {}, (response) => {
+                state.busy = false;
+
+                if (!response || !response.ok) {
+                    updateBetButtons();
+                    updateActionButton();
+                    showToast('تعذر السحب', mapBetError(response), 'error');
+                    return;
+                }
+
+                const bet = response.bet || {};
+                const multiplier = Number(bet.cashoutMultiplier) || currentMultiplier();
+                const payout = Number(bet.payout) || 0;
+
+                state.balance = Number(response.balance) || 0;
+                state.myBet = null;
+                state.cashedOut = true;
+
+                updateBalanceUI();
+                updateBetButtons();
+                updateActionButton();
+                renderBetsTable();
+                playSound('cashout');
+                showToast('فوز رائع!', `تم صرف النقود عند ${multiplier.toFixed(2)}x بربح +${formatAmount(payout)} USDT`);
+            });
+        }
+
+        function mapBetError(response) {
+            const map = {
+                UNAUTHORIZED: 'سجّل الدخول للمراهنة.',
+                BET_EXISTS: 'لديك رهان بالفعل في هذه الجولة.',
+                INSUFFICIENT_BALANCE: 'رصيد غير كافٍ.',
+                BETTING_CLOSED: 'انتهى وقت المراهنة لهذه الجولة.',
+                INVALID_AMOUNT: 'مبلغ الرهان غير صالح.',
+                NO_ACTIVE_BET: 'ليس لديك رهان نشط.',
+                NOT_RUNNING: 'الجولة ليست قيد التشغيل.',
+                ROUND_CRASHED: 'انتهت الجولة بالفعل.',
+                NOT_CASHABLE: 'هذا النوع من الرهان يُحسم تلقائياً عند انفجار الجولة.',
+            };
+            return map[response?.code] || response?.error || 'حدث خطأ غير متوقع.';
+        }
+
+        /* ------------------------------ input helpers ---------------------------- */
+        function getBetAmountInput() {
+            return state.view === 'classic' ? $('classic-bet-amount') : $('bet-amount');
+        }
+
+        function adjustBet(factor) {
+            const input = getBetAmountInput();
+            if (!input) return;
+            const current = parseFloat(input.value) || 0;
+            input.value = Math.max(0.01, current * factor).toFixed(2);
+            if (state.view === 'classic') updateBetUSD();
+        }
+
+        function setBetAmount(val) {
+            const input = $('bet-amount');
+            if (input) input.value = Number(val).toFixed(2);
+        }
+
+        function setBet(val) {
+            const input = $('classic-bet-amount');
+            if (!input) return;
+            input.value = val;
+            updateBetUSD();
+        }
+
+        function updateBetUSD() {
+            const val = parseFloat($('classic-bet-amount')?.value) || 0;
+            const el = $('bet-usd-value');
+            if (el) el.innerText = `≈ $${val.toFixed(2)}`;
+        }
+
+        function switchTab(tab) {
+            activeTab = tab;
+            const btnManual = $('tab-manual');
+            const btnAuto = $('tab-auto');
+            if (!btnManual || !btnAuto) return;
+
+            if (tab === 'manual') {
+                btnManual.className = 'px-6 py-2 rounded-lg text-xs font-bold transition bg-bcCard text-white shadow';
+                btnAuto.className = 'px-6 py-2 rounded-lg text-xs font-bold transition text-bcTextGray hover:text-white';
+            } else {
+                btnAuto.className = 'px-6 py-2 rounded-lg text-xs font-bold transition bg-bcCard text-white shadow';
+                btnManual.className = 'px-6 py-2 rounded-lg text-xs font-bold transition text-bcTextGray hover:text-white';
+            }
+        }
+
+        function handleDeposit() {
+            if (!state.user) {
+                openAccount();
+                return;
+            }
+            showToast('الإيداع', 'الإيداع غير متاح في هذه النسخة التجريبية.', 'error');
+        }
+
+        /* ------------------------------- classic view ----------------------------- */
+        function drawClassicCanvas(time) {
+            if (!classicCanvas || !classicCtx) return;
+            if (!classicCanvas.width || !classicCanvas.height) resizeClassicCanvas();
+            if (!classicCanvas.width || !classicCanvas.height) return;
+
+            const ctx2 = classicCtx;
+            const w = classicCanvas.width;
+            const h = classicCanvas.height;
+            ctx2.clearRect(0, 0, w, h);
+
+            const padding = 50;
+            const width = w - padding * 2;
+            const height = h - padding * 2;
+            const multiplier = currentMultiplier();
+
+            ctx2.beginPath();
+            ctx2.moveTo(padding, h - padding);
+
+            const progress = Math.min(time / 8, 1);
+            const endX = padding + width * progress;
+            const endY = (h - padding) - (height * Math.min((multiplier - 1) / 10, 1));
+            const controlX = padding + (endX - padding) * 0.5;
+            const controlY = h - padding;
+
+            ctx2.quadraticCurveTo(controlX, controlY, endX, endY);
+            ctx2.lineWidth = 4;
+            ctx2.strokeStyle = '#00e676';
+            ctx2.shadowColor = 'rgba(0, 230, 118, 0.5)';
+            ctx2.shadowBlur = 15;
+            ctx2.stroke();
+
+            ctx2.beginPath();
+            ctx2.arc(endX, endY, 8, 0, Math.PI * 2);
+            ctx2.fillStyle = '#ffffff';
+            ctx2.shadowColor = '#00e676';
+            ctx2.shadowBlur = 20;
+            ctx2.fill();
+            ctx2.shadowBlur = 0;
+        }
+
+        function drawClassicCrashCanvas() {
+            if (!classicCanvas || !classicCtx) return;
+            classicCtx.fillStyle = 'rgba(237, 66, 69, 0.15)';
+            classicCtx.fillRect(0, 0, classicCanvas.width, classicCanvas.height);
+        }
+
+        function renderClassicHistory() {
+            const container = $('history-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const items = (state.history || []).slice(0, 12);
+            for (const item of items) {
+                const val = Number(item.crashPoint ?? item);
+                if (!Number.isFinite(val)) continue;
+
+                const chip = document.createElement('div');
+                let colorClass = 'bg-bcInput text-bcBrightGreen border-bcGreen/20';
+                if (val < 2.0) colorClass = 'bg-bcInput text-bcTextGray border-gray-800';
+                else if (val > 10.0) colorClass = 'bg-bcInput text-bcOrange border-bcOrange/30 font-bold';
+
+                chip.className = `px-3 py-1 rounded-lg text-xs font-mono border ${colorClass} shrink-0 cursor-pointer hover:opacity-80 transition`;
+                chip.innerText = `${val.toFixed(2)}x`;
+                chip.title = `الجولة #${item.roundNumber ?? '-'}`;
+                container.appendChild(chip);
+            }
+        }
+
+        function renderClassicUserBets() {
+            const body = $('cl-user-bets-body');
+            const empty = $('cl-user-bets-empty');
+            const countEl = $('cl-user-bets-count');
+            const pageEl = $('cl-user-bets-page');
+            const prevBtn = $('cl-user-bets-prev');
+            const nextBtn = $('cl-user-bets-next');
+            if (!body || !empty || !countEl || !pageEl || !prevBtn || !nextBtn) return;
+
+            const bets = state.userBets || [];
+            const totalPages = Math.max(1, Math.ceil(bets.length / state.betsPerPage));
+            if (state.currentPage > totalPages) state.currentPage = totalPages;
+            if (state.currentPage < 1) state.currentPage = 1;
+
+            const startIndex = (state.currentPage - 1) * state.betsPerPage;
+            const visibleBets = bets.slice(startIndex, startIndex + state.betsPerPage);
+
+            body.innerHTML = '';
+            countEl.innerText = String(bets.length);
+            pageEl.innerText = `${state.currentPage} / ${totalPages}`;
+            prevBtn.disabled = state.currentPage <= 1;
+            nextBtn.disabled = state.currentPage >= totalPages;
+            empty.classList.toggle('hidden', bets.length > 0);
+
+            for (const bet of visibleBets) {
+                const row = document.createElement('tr');
+                row.className = 'border-b border-gray-800/70 cursor-pointer hover:bg-gray-800/40';
+                row.title = 'اضغط لعرض تفاصيل الجولة';
+                row.addEventListener('click', () => openBetDetailModal(bet));
+
+                let multiplierText = '—';
+                let multiplierClass = 'text-bcOrange';
+                let payoutText = '—';
+
+                if (bet.status === 'won') {
+                    multiplierText = `${Number(bet.cashoutMultiplier || 0).toFixed(2)}x`;
+                    multiplierClass = 'text-bcBrightGreen';
+                    payoutText = `$${formatAmount(bet.payout || 0)}`;
+                } else if (bet.status === 'lost') {
+                    multiplierText = 'Busted';
+                    multiplierClass = 'text-bcRed';
+                    payoutText = '$0.00';
+                } else if (bet.status === 'cancelled') {
+                    multiplierText = 'Cancelled';
+                    multiplierClass = 'text-bcTextGray';
+                    payoutText = '$0.00';
+                }
+
+                row.innerHTML = `
+                    <td class="px-2 py-2 font-semibold text-white">#${bet.roundNumber || '-'}</td>
+                    <td class="px-2 py-2 font-mono text-bcTextGray">$${formatAmount(bet.amount || 0)}</td>
+                    <td class="px-2 py-2 font-mono ${multiplierClass}">${multiplierText}</td>
+                    <td class="px-2 py-2 text-right font-mono ${bet.status === 'won' ? 'text-bcBrightGreen' : 'text-bcTextGray'}">${payoutText}</td>
+                `;
+                body.appendChild(row);
+            }
+        }
+
+        function renderClassicBetsTable() {
+            const container = $('bets-table-body');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const bets = (state.bets || []).filter((b) => !b.betType || b.betType === 'crash');
+            const myActive = state.user
+                ? bets.find((b) => b.status === 'active' && b.userId === state.user.id)
+                : null;
+            const others = bets.filter((b) => !myActive || b.id !== myActive.id);
+
+            const totalPool = bets.reduce((acc, b) => acc + Number(b.amount || 0), 0);
+            if ($('total-pool-amount')) $('total-pool-amount').innerText = `$${formatAmount(totalPool)}`;
+            if ($('active-players-count')) $('active-players-count').innerText = String(bets.length);
+
+            if (myActive) {
+                const userRow = document.createElement('div');
+                userRow.className = 'flex justify-between items-center p-2 rounded-xl border bg-bcCardHover border-bcBrightGreen/50 text-white';
+                userRow.innerHTML = `
+                    <div class="flex items-center space-x-2 space-x-reverse">
+                        <span class="w-2 h-2 rounded-full bg-bcBrightGreen"></span>
+                        <span class="font-bold">أنت (You)</span>
+                    </div>
+                    <div>$${formatAmount(myActive.amount)}</div>
+                    <div>-</div>
+                    <div class="font-bold">-</div>
+                `;
+                container.appendChild(userRow);
+            }
+
+            for (const p of others) {
+                const row = document.createElement('div');
+                row.className = 'flex justify-between items-center p-2 rounded-lg bg-bcInput/60 border border-gray-800/40 text-bcTextGray';
+
+                const won = p.status === 'won';
+                const cashoutText = won && p.cashoutMultiplier ? `${Number(p.cashoutMultiplier).toFixed(2)}x` : '-';
+                const profitText = won && p.payout ? `+$${formatAmount(p.payout)}` : '-';
+                const statusColor = won ? 'text-bcBrightGreen font-bold' : 'text-bcTextGray';
+
+                row.innerHTML = `
+                    <div class="truncate max-w-[100px] text-white font-sans">${escapeHtml(p.username || 'player')}</div>
+                    <div>$${formatAmount(p.amount || 0)}</div>
+                    <div class="${statusColor}">${cashoutText}</div>
+                    <div class="${statusColor}">${profitText}</div>
+                `;
+                container.appendChild(row);
+            }
+
+            if (!bets.length) {
+                const empty = document.createElement('div');
+                empty.className = 'text-center text-bcTextGray/70 py-8 text-xs';
+                empty.innerText = 'لا توجد رهانات بعد — كن أول من يراهن!';
+                container.appendChild(empty);
+            }
+        }
+
+        function updateHashPreview() {
+            const el = $('hash-preview');
+            if (!el) return;
+            const hash = state.round?.serverSeedHash || state.history[0]?.serverSeedHash || '';
+            el.innerText = hash ? `Hash: ${hash}` : 'Hash: —';
+        }
+
+        function updateClassicMultiplier() {
+            const el = $('multiplier-display');
+            if (!el) return;
+            if (state.phase === 'crashed') {
+                el.innerText = `${Number(state.crashPoint ?? state.multiplier).toFixed(2)}x`;
+                el.className = 'font-mono text-5xl sm:text-7xl font-black text-bcRed tracking-tight pulse-multiplier';
+            } else if (state.phase === 'running') {
+                el.innerText = `${currentMultiplier().toFixed(2)}x`;
+                el.className = 'font-mono text-5xl sm:text-7xl font-black text-bcOrange tracking-tight drop-shadow-md';
+            } else {
+                el.innerText = '1.00x';
+                el.className = 'font-mono text-5xl sm:text-7xl font-black text-bcOrange tracking-tight drop-shadow-md';
+            }
+        }
+
+        function updateActionButton() {
+            const btn = $('action-btn');
+            const title = $('action-btn-title');
+            const sub = $('action-btn-sub');
+            if (!btn || !title || !sub) return;
+
+            if (state.busy) {
+                btn.className = 'bg-gray-700 opacity-60 cursor-not-allowed w-full py-4 rounded-2xl text-gray-400 font-extrabold text-lg flex flex-col items-center justify-center space-y-0.5';
+                title.innerText = 'جارٍ المعالجة...';
+                sub.innerText = 'يرجى الانتظار';
+                return;
+            }
+
+            if (state.phase === 'waiting') {
+                if (state.myBet) {
+                    if (state.myBet.betType === 'crash') {
+                        btn.className = 'bg-bcRed/90 hover:bg-bcRed w-full py-4 rounded-2xl text-white font-extrabold text-lg shadow-lg active:scale-95 transition-all duration-200 flex flex-col items-center justify-center space-y-0.5';
+                        title.innerText = 'إلغاء الرهان';
+                        sub.innerText = 'استعادة المبلغ';
+                    } else {
+                        btn.className = 'bg-gray-700 opacity-60 cursor-not-allowed w-full py-4 rounded-2xl text-gray-400 font-extrabold text-lg flex flex-col items-center justify-center space-y-0.5';
+                        title.innerText = 'رهانك نشط';
+                        sub.innerText = betTypeLabel(state.myBet.betType);
+                    }
+                } else {
+                    btn.className = 'gradient-btn w-full py-4 rounded-2xl text-black font-extrabold text-lg shadow-lg hover:brightness-110 active:scale-95 transition-all duration-200 flex flex-col items-center justify-center space-y-0.5';
+                    title.innerText = 'رهان (الجولة القادمة)';
+                    sub.innerText = state.user ? 'جاهز للعب' : 'سجّل الدخول للمراهنة';
+                }
+                return;
+            }
+
+            if (state.phase === 'running') {
+                if (state.myBet?.betType === 'crash' && !state.cashedOut) {
+                    const profit = Number(state.myBet.amount || 0) * currentMultiplier();
+                    btn.className = 'gradient-cashout w-full py-4 rounded-2xl text-black font-extrabold text-lg shadow-2xl glow-green active:scale-95 transition-all duration-200 flex flex-col items-center justify-center space-y-0.5 animate-bounce';
+                    title.innerText = 'سحب الأرباح (CASHOUT)';
+                    sub.innerText = `الربح الحالي: $${profit.toFixed(2)}`;
+                } else if (state.myBet) {
+                    btn.className = 'bg-gray-700 opacity-60 cursor-not-allowed w-full py-4 rounded-2xl text-gray-400 font-extrabold text-lg flex flex-col items-center justify-center space-y-0.5';
+                    title.innerText = 'رهانك نشط';
+                    sub.innerText = betTypeLabel(state.myBet.betType);
+                } else {
+                    btn.className = 'bg-gray-700 opacity-60 cursor-not-allowed w-full py-4 rounded-2xl text-gray-400 font-extrabold text-lg flex flex-col items-center justify-center space-y-0.5';
+                    title.innerText = 'الجولة مستمرة...';
+                    sub.innerText = state.user ? 'انتظر الجولة القادمة' : 'سجّل الدخول للمراهنة';
+                }
+                return;
+            }
+
+            if (state.phase === 'crashed') {
+                btn.className = 'bg-gray-700 opacity-60 cursor-not-allowed w-full py-4 rounded-2xl text-gray-400 font-extrabold text-lg flex flex-col items-center justify-center space-y-0.5';
+                title.innerText = 'انتهت الجولة';
+                sub.innerText = 'إعادة التشغيل...';
+                return;
+            }
+
+            btn.className = 'bg-gray-700 opacity-60 cursor-not-allowed w-full py-4 rounded-2xl text-gray-400 font-extrabold text-lg flex flex-col items-center justify-center space-y-0.5';
+            title.innerText = 'بانتظار الجولة...';
+            sub.innerText = 'جارٍ الاتصال...';
+        }
+
+        function updateLiveUI() {
+            const stateText = $('game-state-text');
+            if (!stateText) return;
+
+            if (state.phase === 'waiting') {
+                const remain = Math.max(0, (state.waitingEndsAt - Date.now()) / 1000);
+                stateText.innerText = `الجولة القادمة تبدأ خلال ${remain.toFixed(1)} ثانية...`;
+            } else if (state.phase === 'running') {
+                stateText.innerText = 'الصاروخ ينطلق...';
+                const multiplierEl = $('multiplier-display');
+                if (multiplierEl) multiplierEl.innerText = `${currentMultiplier().toFixed(2)}x`;
+                if (state.myBet?.betType === 'crash' && !state.cashedOut) {
+                    const sub = $('action-btn-sub');
+                    if (sub) sub.innerText = `الربح الحالي: $${(Number(state.myBet.amount || 0) * currentMultiplier()).toFixed(2)}`;
+                }
+            } else if (state.phase === 'crashed') {
+                stateText.innerText = 'سقط الصاروخ! (Crashed)';
+            }
+        }
+
+        function updateAvatar() {
+            const img = $('user-avatar');
+            if (!img) return;
+            const seed = state.user?.username || 'CryptoGambler';
+            img.src = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(seed)}`;
+        }
+
+        function handleMainAction() {
+            placeBet('crash');
+        }
+
+        function renderHistory() {
+            renderTrenballHistory();
+            renderClassicHistory();
+        }
+
+        function renderBetsTable() {
+            renderTrenballBetsTable();
+            renderClassicBetsTable();
+        }
+
+        function renderUserBets() {
+            renderTrenballUserBets();
+            renderClassicUserBets();
+        }
+
+        function switchView(mode) {
+            const next = mode === 'classic' ? 'classic' : 'trenball';
+            state.view = next;
+
+            const trenball = $('trenball-view');
+            const classic = $('classic-view');
+            if (!trenball || !classic) return;
+
+            const showClassic = next === 'classic';
+            classic.classList.toggle('hidden', !showClassic);
+            trenball.classList.toggle('hidden', showClassic);
+
+            try {
+                const path = showClassic ? '/classic' : '/crash';
+                if (window.location.pathname !== path) window.history.replaceState({}, '', path);
+            } catch {}
+
+            updateMultiplierUI();
+            updateClassicMultiplier();
+            updateActionButton();
+            updateBetButtons();
+            updateHashPreview();
+            updateLiveUI();
+            renderHistory();
+            renderBetsTable();
+            renderUserBets();
+            updateBearBull();
+
+            requestAnimationFrame(() => {
+                if (showClassic) {
+                    resizeClassicCanvas();
+                    if (state.phase === 'crashed') drawClassicCrashCanvas();
+                    else drawClassicCanvas(currentElapsedSeconds());
+                } else {
+                    sizeCanvas();
+                    renderCanvas();
+                }
+            });
+        }
+
+        /* ---------------------------------- boot --------------------------------- */
+        function loop() {
+            if (state.view === 'classic') {
+                if (state.phase === 'running') drawClassicCanvas(currentElapsedSeconds());
+                updateLiveUI();
+            } else {
+                renderCanvas();
+                if (state.phase === 'running') {
+                    updateMultiplierUI();
+                    updateCrashProfit();
+                }
+            }
+            requestAnimationFrame(loop);
+        }
+
+        async function boot() {
+            sizeCanvas();
+
+            try {
+                state.config = await fetch('/api/config').then((response) => response.json());
+            } catch {
+                showToast('خطأ', 'تعذر تحميل إعدادات اللعبة.', 'error');
+                return;
+            }
+
+            state.growthRate = state.config.growthRate ?? 0.12;
+            state.waitingMs = state.config.waitingMs ?? 6000;
+            state.crashedMs = state.config.crashedMs ?? 2500;
+            state.houseEdgePercent = Number(state.config.houseEdgePercent ?? state.houseEdgePercent) || 0;
+
+            if (state.config.mode === 'supabase' && window.supabase) {
+                state.sb = window.supabase.createClient(
+                    state.config.supabaseUrl,
+                    state.config.supabaseAnonKey
+                );
+
+                const { data } = await state.sb.auth.getSession();
+                if (data?.session) {
+                    state.session = data.session;
+                    connect(data.session.access_token);
+                } else {
+                    connect(null);
+                }
+            } else {
+                connect(null);
+            }
+
+            updateBalanceUI();
+            updateAccountUI();
+            updateBetButtons();
+            updateActionButton();
+            resizeClassicCanvas();
+            switchView(window.location.pathname.startsWith('/classic') ? 'classic' : 'trenball');
+            requestAnimationFrame(loop);
+        }
+
+        boot();
+    </script>
+</body>
+</html>
